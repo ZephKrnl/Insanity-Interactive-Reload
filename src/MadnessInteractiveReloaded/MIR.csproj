@@ -1,0 +1,121 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<TargetFramework>net9.0</TargetFramework>
+		<!-- Insanity Interactive Reloaded: IIR.exe, IIR.dll. The project file, the MIR namespace and MIR.Test keep their names. -->
+		<AssemblyName>IIR</AssemblyName>
+		<ApplicationIcon>resources\textures\icon.ico</ApplicationIcon>
+		<StartupObject></StartupObject>
+		<Version>0.51.1</Version>
+		<NeutralLanguage />
+		<Company>Zeph</Company>
+		<Authors>Zeph</Authors>
+		<RunPostBuildEvent>Always</RunPostBuildEvent>
+		<Nullable>enable</Nullable>
+		<AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
+		<GenerateBindingRedirectsOutputType>true</GenerateBindingRedirectsOutputType>
+		<DebugType>embedded</DebugType>
+		<GenerateDocumentationFile>True</GenerateDocumentationFile>
+		<Platforms>AnyCPU;x64</Platforms>
+	</PropertyGroup>
+	
+	<PropertyGroup Condition="'$(Configuration)'=='Debug'">
+		<OutputType>Exe</OutputType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)'=='Release'">
+		<OutputType>WinExe</OutputType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+		<PlatformTarget>AnyCPU</PlatformTarget>
+		<DebugType>portable</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
+		<PlatformTarget>AnyCPU</PlatformTarget>
+		<DebugType>portable</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+		<DebugType>portable</DebugType>
+	</PropertyGroup>
+	<PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
+		<DebugType>portable</DebugType>
+	</PropertyGroup>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent">
+		<Exec Command="IIR --mode pack --input &quot;$(ProjectDir)base&quot; --output resources/base.waa" WorkingDirectory="$(OutDir)" />
+	</Target>
+	
+	<Target Name="PostPublish" AfterTargets="Publish">
+		<Exec Command="IIR --mode pack --input &quot;$(ProjectDir)base&quot; --output resources/base.waa" WorkingDirectory="$(PublishDir)" />
+	</Target>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="MIR.Test" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.12.0" />
+		<PackageReference Include="NativeFileDialogExtendedSharp" Version="0.1.0" />
+		<PackageReference Include="SkiaSharp.NativeAssets.Linux" Version="3.116.1" />
+		<PackageReference Include="System.CommandLine.DragonFruit" Version="0.4.0-alpha.22272.1" />
+		<PackageReference Include="System.Text.Json" Version="9.0.0" />
+		<PackageReference Include="Walgelijk" Version="0.30.0" />
+		<PackageReference Include="Walgelijk.AssetManager" Version="0.17.0" />
+		<PackageReference Include="Walgelijk.CommonAssetDeserialisers" Version="0.9.0" />
+		<PackageReference Include="Walgelijk.Localisation" Version="1.2.0" />
+		<PackageReference Include="Walgelijk.Onion" Version="0.6.0" />
+		<PackageReference Include="Walgelijk.OpenTK" Version="0.24.0" />
+		<PackageReference Include="Walgelijk.OpenTK.MotionTK" Version="1.2.0" />
+		<PackageReference Include="Walgelijk.ParticleSystem" Version="0.3.0" />
+		<PackageReference Include="Walgelijk.Physics" Version="0.4.0" />
+		<PackageReference Include="Walgelijk.PortAudio" Version="0.5.0" />
+		<PackageReference Include="Walgelijk.SimpleDrawing" Version="1.27.0" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<Content Include="$(ProjectDir)resources\**" CopyToOutputDirectory="Always" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<Resource Include="$(ProjectDir)base\**" CopyToOutputDirectory="Never" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<None Include="..\.editorconfig" Link=".editorconfig" />
+	</ItemGroup>
+	
+	<ItemGroup>
+		<ProjectReference Include="..\BigGustave\src\BigGustave\BigGustave.csproj" />
+		<ProjectReference Include="..\Harmony\Harmony\Harmony.csproj" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="avcodec-59.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="avdevice-59.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="avformat-59.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="avutil-57.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="NOTICE.txt">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Include="..\..\LICENSE" Link="LICENSE" CopyToOutputDirectory="Always" />
+		<None Update="openAL32.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="nfd.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="swresample-4.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+		<None Update="swscale-6.dll">
+			<CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+</Project>

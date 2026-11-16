@@ -1,0 +1,20 @@
+<Project>
+	<!--
+		Makes `dotnet build src/MIR.sln` work from the command line.
+
+		The Harmony submodule only references MonoMod.Core for its *Thin/*Fat configurations.
+		The solution maps Debug -> DebugThin for building, but NuGet restore evaluates every
+		project with the plain solution configuration (Debug), so MonoMod.Core was never restored.
+		Harmony then failed to compile, and MIR never got MonoMod at runtime.
+
+		Harmony also packs itself on every build and then deletes MonoMod.* from its bin folder,
+		which breaks MIR's deps.json generation. A game build does not need the Harmony NuGet package.
+	-->
+	<ItemGroup Condition="'$(MSBuildProjectName)' == 'Harmony' And !$(Configuration.EndsWith('Thin')) And !$(Configuration.EndsWith('Fat')) And '$(Configuration)' != 'ReleaseRef'">
+		<PackageReference Include="MonoMod.Core" Version="$(MonoModCoreVersion)" />
+	</ItemGroup>
+
+	<PropertyGroup Condition="'$(MSBuildProjectName)' == 'Harmony'">
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+	</PropertyGroup>
+</Project>
