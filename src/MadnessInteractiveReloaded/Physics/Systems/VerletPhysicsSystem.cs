@@ -26,10 +26,13 @@ public class VerletPhysicsSystem : Walgelijk.System
         //MaxRate = 64
     };
 
-    private const int MaxNodes = 256;
-    private static readonly VerletNodeComponent[] nodeBuffer = new VerletNodeComponent[MaxNodes];
-    private static readonly VerletLinkComponent[] linkBuffer = new VerletLinkComponent[MaxNodes];
-    private static readonly VerletTransformComponent[] transformLinkBuffer = new VerletTransformComponent[MaxNodes];
+    // The engine's CopyAllComponentsOfType copies at most buffer.Length components and only returns how many it copied, so
+    // fixed buffers silently left the rest unsimulated (BUG-47). These start at 256 and grow when full; they never shrink,
+    // so after the busiest frame there are no more allocations.
+    private const int InitialBufferSize = 256;
+    private VerletNodeComponent[] nodeBuffer = new VerletNodeComponent[InitialBufferSize];
+    private VerletLinkComponent[] linkBuffer = new VerletLinkComponent[InitialBufferSize];
+    private VerletTransformComponent[] transformLinkBuffer = new VerletTransformComponent[InitialBufferSize];
 
     private static QueryResult[] resultBuffer = new QueryResult[1];
 
@@ -43,9 +46,9 @@ public class VerletPhysicsSystem : Walgelijk.System
         var cycles = distributor.CalculateCycleCount(Time.DeltaTime);
         cycles = Utilities.Clamp(cycles, 0, 256);
 
-        int nodeCount = Scene.CopyAllComponentsOfType(nodeBuffer);
-        int linkCount = Scene.CopyAllComponentsOfType(linkBuffer);
-        int transformLinkCount = Scene.CopyAllComponentsOfType(transformLinkBuffer);
+        int nodeCount = CopyAllComponents(Scene, ref nodeBuffer);
+        int linkCount = CopyAllComponents(Scene, ref linkBuffer);
+        int transformLinkCount = CopyAllComponents(Scene, ref transformLinkBuffer);
 
         for (int i = 0; i < cycles; i++)
         {
@@ -70,6 +73,18 @@ public class VerletPhysicsSystem : Walgelijk.System
 
         for (int p = 0; p < transformLinkCount; p++)
             SolveTripleTransformLinks(transformLinkBuffer[p]);
+    }
+
+    /// <summary>
+    /// Copies every <typeparamref name="T"/> in the scene into <paramref name="buffer"/> and returns how many there are. When
+    /// the buffer comes back full there may have been more, so it doubles and copies again until they all fit.
+    /// </summary>
+    internal static int CopyAllComponents<T>(Scene scene, ref T[] buffer) where T : Component
+    {
+        int count;
+        while ((count = scene.CopyAllComponentsOfType(buffer)) >= buffer.Length)
+            Array.Resize(ref buffer, buffer.Length * 2);
+        return count;
     }
 
     public override void Render()
