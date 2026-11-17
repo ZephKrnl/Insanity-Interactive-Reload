@@ -54,6 +54,7 @@ public static class SaveFile
     public const string TempSuffix = ".tmp";
     public const string BackupSuffix = ".bak";
     public const string CorruptInfix = ".corrupt-";
+    public const string UnloadedInfix = ".unloaded-";
     public const string CorruptTimestampFormat = "yyyyMMdd-HHmmss";
 
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
@@ -236,22 +237,33 @@ public static class SaveFile
     /// taken), so a fresh file can be written in its place while the old one is kept.
     /// </summary>
     /// <returns>The new name, or null when the file could not be renamed (it is then left as it is).</returns>
-    public static string? Quarantine(string path)
+    public static string? Quarantine(string path) => MoveAside(path, CorruptInfix, "unreadable save");
+
+    /// <summary>
+    /// Renames <paramref name="path"/> to <c>&lt;path&gt;&lt;infix&gt;&lt;yyyyMMdd-HHmmss&gt;</c> (with a counter if that name
+    /// is taken), never overwriting anything, so a new file can be written in its place while the old one is kept.
+    /// </summary>
+    /// <param name="path">The file to move aside.</param>
+    /// <param name="infix">What goes between the name and the timestamp, such as <see cref="CorruptInfix"/> or
+    /// <see cref="UnloadedInfix"/>.</param>
+    /// <param name="what">What the file is, for the log.</param>
+    /// <returns>The new name, or null when the file could not be renamed (it is then left as it is).</returns>
+    public static string? MoveAside(string path, string infix, string what)
     {
         try
         {
-            var stem = path + CorruptInfix + DateTime.Now.ToString(CorruptTimestampFormat);
+            var stem = path + infix + DateTime.Now.ToString(CorruptTimestampFormat);
             var target = stem;
             for (int i = 2; File.Exists(target) || Directory.Exists(target); i++)
                 target = stem + "-" + i;
 
             File.Move(path, target);
-            Logger.Warn($"Moved unreadable save \"{path}\" aside to \"{Path.GetFileName(target)}\"");
+            Logger.Warn($"Moved {what} \"{path}\" aside to \"{Path.GetFileName(target)}\"");
             return target;
         }
         catch (Exception e)
         {
-            Logger.Error($"Could not move unreadable save \"{path}\" aside: {e.GetType().Name}: {e.Message}");
+            Logger.Error($"Could not move {what} \"{path}\" aside: {e.GetType().Name}: {e.Message}");
             return null;
         }
     }

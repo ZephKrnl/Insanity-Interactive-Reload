@@ -115,11 +115,21 @@ public static class UserData
     /// <summary>
     /// Saves <see cref="Instances.PlayerLook"/> to <c>player.look</c>, for example when the player leaves character creation.
     /// From then on it is also saved at exit. Never throws.
+    /// <para>
+    /// A <c>player.look</c> this session could not read (for example, it uses armour from a mod that is not installed) is
+    /// first renamed to <c>player.look.unloaded-&lt;yyyyMMdd-HHmmss&gt;</c>, never deleted. If it cannot be renamed, nothing is
+    /// saved. A file that could not be opened at all is never written (see <see cref="SaveLoadResult.Inaccessible"/>).
+    /// </para>
     /// </summary>
     /// <returns>True when it was saved.</returns>
     public static bool SavePlayerLook()
     {
-        if (!RunSave("player look", () => CharacterLookDeserialiser.Save(Instances.PlayerLook, Paths.PlayerLookFile)))
+        var path = Paths.PlayerLookFile;
+        if (!Loaded.PlayerLook && File.Exists(path) && !SaveFile.IsWriteBlocked(path)
+            && SaveFile.MoveAside(path, SaveFile.UnloadedInfix, "player look that could not be loaded") == null)
+            return false;
+
+        if (!RunSave("player look", () => CharacterLookDeserialiser.Save(Instances.PlayerLook, path)))
             return false;
         Loaded.PlayerLook = true;
         return true;

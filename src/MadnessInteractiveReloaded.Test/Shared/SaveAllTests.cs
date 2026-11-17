@@ -128,6 +128,36 @@ public class SaveAllTests : IDisposable
     }
 
     [Fact]
+    public void Unreadable_player_look_is_moved_aside_before_character_creation_saves_over_it()
+    {
+        const string needsAMod = "0.51.1\n\nbody\n   armour_from_a_removed_mod\n";
+        File.WriteAllText(UserData.Paths.PlayerLookFile, needsAMod);
+        GameLoadingSteps.LoadPlayerLook();
+        looks.Look("player").CopyTo(UserData.Instances.PlayerLook);
+
+        UserData.SavePlayerLook().Should().BeTrue();
+        UserData.SaveAll();
+        UserData.SaveAll();
+
+        var aside = Directory.GetFiles(userData.Root, "player.look" + SaveFile.UnloadedInfix + "*").Should().ContainSingle().Subject;
+        Path.GetFileName(aside).Should().MatchRegex(@"^player\.look\.unloaded-\d{8}-\d{6}$");
+        File.ReadAllText(aside).Should().Be(needsAMod, "the look this session could not read is kept, never deleted");
+        CharacterLookDeserialiser.Load(UserData.Paths.PlayerLookFile).HeadLayer1.Should().BeSameAs(looks.HeadAccessory);
+    }
+
+    [Fact]
+    public void A_look_that_was_read_is_saved_in_place_not_moved_aside()
+    {
+        File.WriteAllText(UserData.Paths.PlayerLookFile, SaveTestLooks.LookFile("0.51.1"));
+        GameLoadingSteps.LoadPlayerLook();
+
+        UserData.SavePlayerLook().Should().BeTrue();
+
+        Directory.GetFiles(userData.Root, "player.look" + SaveFile.UnloadedInfix + "*").Should().BeEmpty();
+        File.Exists(UserData.Paths.PlayerLookFile + SaveFile.BackupSuffix).Should().BeTrue();
+    }
+
+    [Fact]
     public void Leaving_character_creation_saves_the_look_and_marks_it_loaded()
     {
         looks.Look("player").CopyTo(UserData.Instances.PlayerLook);
