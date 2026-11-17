@@ -258,6 +258,8 @@ public class WeaponSystem : Walgelijk.System
         // Here rather than in ShootWeapon: every shot passes through this, including trigger pulls and burst fire.
         if (isPlayer && Gamepad.IsActiveDevice)
             ControllerRumble.Shot(data.Recoil);
+        else if (!isPlayer && Scene.HasTag(wielder.Entity, Tags.EnemyAI))
+            AiActivityCounters.Shots++; // benchmark statistic only
 
         if (weapon.AnimatedParts != null && !data.IsPumpAction)
             foreach (var animatedPart in weapon.AnimatedParts)

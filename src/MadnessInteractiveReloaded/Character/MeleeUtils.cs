@@ -54,6 +54,9 @@ public static class MeleeUtils
 
             var a = new MeleeSequenceComponent(Registries.MeleeSequences.Get(meleeSeq), speed);
             scene.AttachComponent(character.Entity, a);
+
+            if (scene.HasTag(character.Entity, Tags.EnemyAI))
+                AiActivityCounters.MeleeAttacks++; // benchmark statistic only
         }
     }
 
