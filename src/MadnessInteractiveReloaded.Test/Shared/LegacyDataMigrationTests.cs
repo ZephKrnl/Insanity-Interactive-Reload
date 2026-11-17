@@ -151,6 +151,42 @@ public class LegacyDataMigrationTests : IDisposable
     }
 
     [Fact]
+    public void A_conflict_on_retry_keeps_both_versions()
+    {
+        // A session ran after the copy failed and wrote defaults; the player's real data is the legacy copy.
+        foreach (var name in new[] { "settings.json", "player.look", "disks.txt" })
+        {
+            WriteFile(Path.Combine(Legacy, "userdata", name), "legacy " + name);
+            WriteFile(Path.Combine(Target, "userdata", name), "session " + name);
+        }
+        WriteFile(Path.Combine(Staging, "userdata", "settings.json"), "legacy settings.json");
+
+        LegacyDataMigration.CopyLegacyDataIfNeeded(root, NewFolderName).Should().BeTrue();
+
+        foreach (var name in new[] { "settings.json", "player.look", "disks.txt" })
+        {
+            File.ReadAllText(Path.Combine(Target, "userdata", name)).Should().Be("session " + name);
+            File.ReadAllText(Path.Combine(Target, "userdata", name + LegacyDataMigration.LegacyCopySuffix))
+                .Should().Be("legacy " + name, "the legacy version is kept next to the session's, never dropped");
+        }
+        Directory.Exists(Staging).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_kept_legacy_copy_never_overwrites_an_earlier_one()
+    {
+        WriteFile(Path.Combine(Legacy, "userdata", "settings.json"), "legacy");
+        WriteFile(Path.Combine(Staging, "userdata", "settings.json"), "legacy");
+        WriteFile(Path.Combine(Target, "userdata", "settings.json"), "session");
+        WriteFile(Path.Combine(Target, "userdata", "settings.json" + LegacyDataMigration.LegacyCopySuffix), "kept before");
+
+        LegacyDataMigration.CopyLegacyDataIfNeeded(root, NewFolderName).Should().BeTrue();
+
+        File.ReadAllText(Path.Combine(Target, "userdata", "settings.json" + LegacyDataMigration.LegacyCopySuffix)).Should().Be("kept before");
+        File.ReadAllText(Path.Combine(Target, "userdata", "settings.json" + LegacyDataMigration.LegacyCopySuffix + "-2")).Should().Be("legacy");
+    }
+
+    [Fact]
     public void A_finished_copy_is_not_repeated()
     {
         WriteFile(Path.Combine(Legacy, "userdata", "settings.json"), "legacy");

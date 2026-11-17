@@ -25,6 +25,12 @@ public static class LegacyDataMigration
     public const string StagingSuffix = ".migrating";
 
     /// <summary>
+    /// On a retry, a legacy file whose name the real folder already has (written by a session that ran after the failed
+    /// copy) is kept next to it as <c>&lt;name&gt;.legacy</c> (or <c>.legacy-2</c>, …), never dropped.
+    /// </summary>
+    public const string LegacyCopySuffix = ".legacy";
+
+    /// <summary>
     /// Top-level folder that is not copied: old logs are of no use to the renamed game.
     /// </summary>
     private const string LogsFolderName = "logs";
@@ -36,8 +42,8 @@ public static class LegacyDataMigration
     /// failed copy never leaves a half-filled folder that looks finished.
     /// <para>
     /// If a session ran after a failed copy, the folder has that session's files by the time of the retry. The retry then
-    /// adds only what is missing and never overwrites a file in it (each skipped file is logged); the legacy originals stay
-    /// where they are.
+    /// adds what is missing and never overwrites a file in it: where both have a file, the legacy one is kept next to it as
+    /// <c>&lt;name&gt;.legacy</c> (see <see cref="LegacyCopySuffix"/>), and each is logged.
     /// </para>
     /// The legacy folder is never moved, changed or deleted. Never throws: errors are logged to the console and return false.
     /// Call it before constructing the <see cref="Walgelijk.Game"/>, which creates the new folder.
@@ -101,28 +107,50 @@ public static class LegacyDataMigration
     }
 
     /// <summary>
-    /// Moves every file in <paramref name="staging"/> into <paramref name="target"/> where <paramref name="target"/> does not
-    /// have it yet, then deletes <paramref name="staging"/> (a copy; the legacy folder still has the originals).
+    /// Moves every file in <paramref name="staging"/> into <paramref name="target"/>. Where <paramref name="target"/> already
+    /// has the file, the legacy one goes next to it as <c>&lt;name&gt;.legacy</c> instead. Then the staging folder, now
+    /// without files, is removed. If any file is still in it, it is left for the next launch.
     /// </summary>
     private static void MergeInto(DirectoryInfo staging, DirectoryInfo target)
     {
         foreach (var file in staging.GetFiles("*", SearchOption.AllDirectories))
         {
             var destination = Path.Combine(target.FullName, Path.GetRelativePath(staging.FullName, file.FullName));
+            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
+
             if (File.Exists(destination) || Directory.Exists(destination))
             {
-                Console.WriteLine("Kept \"{0}\": it was written after the earlier copy failed. The legacy copy was not used.", destination);
+                var keptAs = FreeName(destination + LegacyCopySuffix);
+                file.MoveTo(keptAs);
+                Console.WriteLine("Kept \"{0}\", written after the earlier copy failed; the legacy version is next to it as \"{1}\".",
+                    destination, Path.GetFileName(keptAs));
                 continue;
             }
 
-            Directory.CreateDirectory(Path.GetDirectoryName(destination)!);
             file.MoveTo(destination);
         }
 
         foreach (var dir in staging.GetDirectories("*", SearchOption.AllDirectories))
             Directory.CreateDirectory(Path.Combine(target.FullName, Path.GetRelativePath(staging.FullName, dir.FullName)));
 
-        staging.Delete(recursive: true);
+        if (staging.EnumerateFiles("*", SearchOption.AllDirectories).Any())
+        {
+            Console.Error.WriteLine("Left \"{0}\": it still has files that were not moved.", staging.FullName);
+            return;
+        }
+
+        staging.Delete(recursive: true); // only empty folders are left
+    }
+
+    /// <summary>
+    /// <paramref name="path"/>, or <c>&lt;path&gt;-2</c>, <c>-3</c>, … if it is taken.
+    /// </summary>
+    private static string FreeName(string path)
+    {
+        var name = path;
+        for (int i = 2; File.Exists(name) || Directory.Exists(name); i++)
+            name = path + "-" + i;
+        return name;
     }
 }
 
