@@ -57,7 +57,7 @@
         "Y": 242.79584
       },
       "Name": "music thing",
-      "Code": "bool done = false;\n\nvoid Update()\n{\n    if (done)\n        return;\n\n    var l = SoundCache.Instance.LoadMusic(Assets.Load<StreamAudioData>(\"sounds/music/Lothyde/strenuous.ogg\"));\n    if (!Audio.IsPlaying(l))\n    {\n        if (CampaignScene.LevelMusic != l)\n        {\n            if (CampaignScene.LevelMusic != null)\n                Audio.Stop(CampaignScene.LevelMusic);\n            CampaignScene.LevelMusic = l;\n        }\n        Audio.Play(l);\n        Audio.SetTime(l, 93);\n        done = true;\n    }\n    else if (l == CampaignScene.LevelMusic)\n    {\n        Audio.SetTime(CampaignScene.LevelMusic, 93);\n        done = true;\n    }\n}\n",
+      "Code": "bool done = false;\n\nvoid Update()\n{\n    if (done)\n        return;\n\n    var l = SoundCache.Instance.LoadMusic(Assets.Load<StreamAudioData>(\"sounds/music/Lothyde/strenuous.ogg\"));\n    if (!Audio.IsPlaying(l))\n    {\n        if (PersistentSoundHandles.LevelMusic != l)\n        {\n            if (PersistentSoundHandles.LevelMusic != null)\n                Audio.Stop(PersistentSoundHandles.LevelMusic);\n            PersistentSoundHandles.LevelMusic = l;\n        }\n        Audio.Play(l);\n        Audio.SetTime(l, 93);\n        done = true;\n    }\n    else if (l == PersistentSoundHandles.LevelMusic)\n    {\n        Audio.SetTime(PersistentSoundHandles.LevelMusic, 93);\n        done = true;\n    }\n}\n",
       "Tag": null
     }
   ]
