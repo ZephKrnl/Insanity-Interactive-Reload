@@ -88,23 +88,24 @@ public static class ImprobabilityDisks
 
     public static void Unlock(string id)
     {
-        if (UserData.Instances.UnlockedImprobabilityDisks.Add(id))
+        // Before the disks are loaded (a console command on the loading screen), saving would replace the file with this one disk.
+        if (UserData.Instances.UnlockedImprobabilityDisks.Add(id) && UserData.Loaded.ImprobabilityDisks)
             SaveUnlocked(UserData.Instances.UnlockedImprobabilityDisks);
     }
 
     public static bool IsUnlocked(string id) => UserData.Instances.UnlockedImprobabilityDisks.Contains(id);
 
+    /// <summary>
+    /// Saves the unlocked disk IDs to <c>disks.txt</c>, atomically. Never throws; a failure is logged.
+    /// </summary>
     public static void SaveUnlocked(IEnumerable<string> unlocked)
-    {
-        File.WriteAllLines(UserData.Paths.UnlockedImprobabilityDisk, unlocked);
-    }
+        => UnlockedDisksFile.Save(UserData.Paths.UnlockedImprobabilityDisk, unlocked);
 
+    /// <summary>
+    /// The unlocked disk IDs from <c>disks.txt</c>, with or without a version line, falling back to its backup.
+    /// </summary>
     public static string[] LoadUnlocked()
-    {
-        if (File.Exists(UserData.Paths.UnlockedImprobabilityDisk))
-            return File.ReadAllLines(UserData.Paths.UnlockedImprobabilityDisk);
-        return [];
-    }
+        => UnlockedDisksFile.Load(UserData.Paths.UnlockedImprobabilityDisk);
 
     private static ImprobabilityDisk L(string texture, string name, string description)
     {

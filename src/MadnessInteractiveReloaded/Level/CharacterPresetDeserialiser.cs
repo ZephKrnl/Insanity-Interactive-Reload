@@ -25,13 +25,14 @@ public static class CharacterPresetDeserialiser
         deserialiser = new KeyValueDeserialiser<ExperimentCharacterPreset>(nameof(CharacterPresetDeserialiser));
         deserialiser.RegisterString("name", (i, v) => i.Name = v);
 
+        // Embedded looks and stats are whole .look and .stats files in base64. They are read from memory; this used to go
+        // through a temporary file per preset, which was never deleted.
         deserialiser.RegisterString("look", (i, v) =>
         {
             if (v.StartsWith(dataPrefix))
             {
-                var f = Path.GetTempFileName();
-                File.WriteAllBytes(f, Convert.FromBase64String(v[dataPrefix.Length..]));
-                i.Look = CharacterLookDeserialiser.Load(f);
+                using var data = new MemoryStream(Convert.FromBase64String(v[dataPrefix.Length..]));
+                i.Look = CharacterLookDeserialiser.Load(data, "embedded look");
             }
             else
                 i.Look = Registries.Looks.Get(v);
@@ -41,9 +42,8 @@ public static class CharacterPresetDeserialiser
         {
             if (v.StartsWith(dataPrefix))
             {
-                var f = Path.GetTempFileName();
-                File.WriteAllBytes(f, Convert.FromBase64String(v[dataPrefix.Length..]));
-                i.Stats = CharacterStatsDeserialiser.Load(f);
+                using var data = new MemoryStream(Convert.FromBase64String(v[dataPrefix.Length..]));
+                i.Stats = CharacterStatsDeserialiser.Load(data, "embedded stats");
             }
             else
                 i.Stats = Registries.Stats.Get(v);
@@ -52,6 +52,10 @@ public static class CharacterPresetDeserialiser
 
     public static ExperimentCharacterPreset Load(string path) => deserialiser.Deserialise(path);
 
+    /// <summary>
+    /// Save a preset, atomically, keeping the previous file as <c>.bak</c> (see <see cref="SaveFile"/>). A look or stats that
+    /// are not registered are embedded.
+    /// </summary>
     public static void Save(string name, CharacterLook look, CharacterStats stats, string path)
     {
         var writer = new StringBuilder();
@@ -60,21 +64,14 @@ public static class CharacterPresetDeserialiser
         if (Registries.Looks.TryGetKeyFor(look, out var k))
             writer.AppendLineFormat("look {0}", k);
         else
-        {
-            var f = Path.GetTempFileName();
-            CharacterLookDeserialiser.Save(look, f);
-            writer.AppendLineFormat("look {0}", dataPrefix + Convert.ToBase64String(File.ReadAllBytes(f)));
-        }
+            writer.AppendLineFormat("look {0}", dataPrefix + Convert.ToBase64String(Encoding.UTF8.GetBytes(CharacterLookDeserialiser.Serialise(look))));
 
         if (Registries.Stats.TryGetKeyFor(stats, out k))
             writer.AppendLineFormat("stats {0}", k);
         else
-        {
-            var f = Path.GetTempFileName();
-            CharacterStatsDeserialiser.Save(stats, f);
-            writer.AppendLineFormat("stats {0}", dataPrefix + Convert.ToBase64String(File.ReadAllBytes(f)));
-        }
-        File.WriteAllText(path, writer.ToString());
+            writer.AppendLineFormat("stats {0}", dataPrefix + Convert.ToBase64String(Encoding.UTF8.GetBytes(CharacterStatsDeserialiser.Serialise(stats))));
+
+        SaveFile.WriteAllText(path, writer.ToString());
     }
 
     public class AssetDeserialiser : IAssetDeserialiser<ExperimentCharacterPreset>

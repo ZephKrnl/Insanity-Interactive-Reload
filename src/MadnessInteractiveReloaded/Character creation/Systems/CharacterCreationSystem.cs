@@ -244,7 +244,7 @@ public class CharacterCreationSystem : Walgelijk.System
                 {
                     try
                     {
-                        CharacterLookDeserialiser.Save(look, exportPath);
+                        CharacterLookDeserialiser.Save(look, exportPath, keepBackup: false);
                     }
                     catch (Exception e)
                     {

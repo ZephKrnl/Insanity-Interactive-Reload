@@ -1,4 +1,5 @@
 ﻿using MIR.LevelEditor.Objects;
+using MIR.Serialisation;
 using Newtonsoft.Json;
 using System;
 using System.IO;
@@ -53,10 +54,13 @@ public static class LevelDeserialiser
         return entry;
     }
 
+    /// <summary>
+    /// Save a level, atomically (see <see cref="SaveFile"/>). No backup is kept: levels are saved into asset folders.
+    /// </summary>
     public static void Save(Level level, string path)
     {
         AssertValidLevel(level);
-        File.WriteAllText(path, JsonConvert.SerializeObject(level, SerializerSettings));
+        SaveFile.WriteAllText(path, JsonConvert.SerializeObject(level, SerializerSettings), keepBackup: false);
     }
 
     public static Level Load(Stream input, string id)

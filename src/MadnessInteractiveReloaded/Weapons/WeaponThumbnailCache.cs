@@ -1,4 +1,5 @@
-﻿using SkiaSharp;
+﻿using MIR.Serialisation;
+using SkiaSharp;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
@@ -87,8 +88,6 @@ public class WeaponThumbnailCache// : Cache<WeaponInstructions, IReadableTexture
             const int targetSize = ThumbnailRenderer.ThumbnailResolution;
             const int padding = 25;
 
-            using var outStream = new FileStream(OutputPath, FileMode.Create);
-
             using var img = new SKBitmap(targetSize, targetSize);
             using var canvas = new SKCanvas(img);
 
@@ -131,7 +130,9 @@ public class WeaponThumbnailCache// : Cache<WeaponInstructions, IReadableTexture
                 }
 
             canvas.Save();
-            img.Encode(outStream, SKEncodedImageFormat.Png, 100);
+            // Atomic, so quitting while thumbnails are generated cannot leave a truncated PNG, which the cache would keep
+            // loading instead of regenerating. It is a cache, so no backup.
+            SaveFile.Write(OutputPath, s => img.Encode(s, SKEncodedImageFormat.Png, 100), keepBackup: false);
             Finished = true;
         }
 

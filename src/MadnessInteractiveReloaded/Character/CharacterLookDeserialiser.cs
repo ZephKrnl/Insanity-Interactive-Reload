@@ -134,12 +134,27 @@ public static class CharacterLookDeserialiser
     }
 
     /// <summary>
-    /// Save the given look to the given path. 
+    /// Save the given look to the given path, atomically, keeping the previous file as <c>.bak</c> (see <see cref="SaveFile"/>).
     /// This method will throw an exception if any <see cref="ArmourPiece"/>s or <see cref="HandArmourPiece"/>s are given that aren't registered to their respective registries.
     /// </summary>
     /// <exception cref="Exceptions.SerialisationException"></exception>
     /// <exception cref="IOException"></exception>
-    public static void Save(CharacterLook look, string path)
+    public static void Save(CharacterLook look, string path) => Save(look, path, keepBackup: true);
+
+    /// <summary>
+    /// <see cref="Save(CharacterLook, string)"/>, choosing whether to keep a <c>.bak</c>. The character creation export, to a
+    /// path the player picks, keeps none.
+    /// </summary>
+    /// <exception cref="Exceptions.SerialisationException"></exception>
+    /// <exception cref="IOException"></exception>
+    public static void Save(CharacterLook look, string path, bool keepBackup)
+        => SaveFile.WriteAllText(path, Serialise(look), keepBackup);
+
+    /// <summary>
+    /// The text of a <c>.look</c> file for <paramref name="look"/>, starting with the version line.
+    /// </summary>
+    /// <exception cref="Exceptions.SerialisationException"></exception>
+    public static string Serialise(CharacterLook look)
     {
         StringBuilder writer = new();
 
@@ -209,7 +224,7 @@ public static class CharacterLookDeserialiser
         if (look.HeadFlesh.HasValue && Assets.HasAsset(look.HeadFlesh.Value.Id))
             writer.AppendFormat("{0} {1}\n", HeadFleshIdentifier, look.HeadFlesh.Value.Id);
 
-        File.WriteAllText(path, writer.ToString());
+        return writer.ToString();
     }
 
     private static bool TryGetKey<T2>(IRegistry<string, T2> registry, in T2 obj, out string? key) where T2 : class
@@ -233,6 +248,14 @@ public static class CharacterLookDeserialiser
     /// <exception cref="Exceptions.SerialisationException"></exception>
     /// <exception cref="IOException"></exception>
     public static CharacterLook Load(string path) => deserialiser.Deserialise(path);
+
+    /// <summary>
+    /// Load and return a <see cref="CharacterLook"/> from <paramref name="input"/>.
+    /// </summary>
+    /// <param name="input">The text of a <c>.look</c> file.</param>
+    /// <param name="location">Where it came from, for error messages.</param>
+    /// <exception cref="Exceptions.SerialisationException"></exception>
+    public static CharacterLook Load(Stream input, string location) => deserialiser.Deserialise(input, location);
 
     public class AssetDeserialiser : IAssetDeserialiser<CharacterLook>
     {

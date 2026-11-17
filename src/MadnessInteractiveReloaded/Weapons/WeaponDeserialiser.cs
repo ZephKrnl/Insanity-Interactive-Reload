@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using MIR.Serialisation;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -32,10 +33,13 @@ public static class WeaponDeserialiser
         return obj;
     }
 
+    /// <summary>
+    /// Save a weapon, atomically (see <see cref="SaveFile"/>). No backup is kept: weapons are saved into asset folders.
+    /// </summary>
     public static void SaveWeapon(WeaponInstructions instr, string path)
     {
         var str = JsonConvert.SerializeObject(instr, serializerSettings);
-        File.WriteAllText(path, str);
+        SaveFile.WriteAllText(path, str, keepBackup: false);
     }
 
     public class AssetDeserialiser : IAssetDeserialiser<WeaponInstructions>

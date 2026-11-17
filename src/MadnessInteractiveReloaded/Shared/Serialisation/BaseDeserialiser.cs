@@ -39,10 +39,11 @@ public static class BaseDeserialiser
     }
 
     /// <summary>
-    /// Save something to disk.
+    /// Save something to disk, atomically (see <see cref="SaveFile"/>), starting with the version line.
+    /// No backup is kept, because this writes editor files into folders that are packed or listed as assets.
     /// </summary>
-    /// <param name="writer"></param>
-    /// <param name="lines"></param>
+    /// <param name="path">The file to write.</param>
+    /// <param name="lines">The lines after the version line; blank ones are skipped.</param>
     /// <returns></returns>
     public static bool Write(string path, IEnumerable<string> lines)
     {
@@ -58,7 +59,7 @@ public static class BaseDeserialiser
             writer.AppendLineFormat(l.Trim());
         }
 
-        File.WriteAllText(path, writer.ToString());
+        SaveFile.WriteAllText(path, writer.ToString(), keepBackup: false);
 
         return true;
     }

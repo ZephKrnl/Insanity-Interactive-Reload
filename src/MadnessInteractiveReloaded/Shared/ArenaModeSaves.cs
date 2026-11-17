@@ -1,23 +1,38 @@
-﻿using Newtonsoft.Json;
-using System.IO;
+﻿using MIR.Serialisation;
+using Newtonsoft.Json;
 
 namespace MIR;
 
+/// <summary>
+/// Arena mode progress, <c>arena.json</c>. Arena mode does not exist yet: nothing loads this at startup.
+/// </summary>
 public class ArenaModeSaves
 {
+    /// <summary>
+    /// Reads <c>arena.json</c> with recovery (see <see cref="SaveFile"/>), migrating files without a version. Returns an empty
+    /// instance when there is no readable file.
+    /// </summary>
     public static ArenaModeSaves Load()
     {
-        if (!File.Exists(UserData.Paths.ArenaModeSaves))
-            return new();
-
-        var json = File.ReadAllText(UserData.Paths.ArenaModeSaves);
-        return JsonConvert.DeserializeObject<ArenaModeSaves>(json) ?? new();
+        SaveFile.TryLoad(UserData.Paths.ArenaModeSaves,
+            static json => SaveFormat.DeserialiseJson<ArenaModeSaves>(json, SaveKind.ArenaModeSaves),
+            out var read, "arena saves");
+        return read ?? new();
     }
 
+    /// <summary>
+    /// Writes <c>arena.json</c>, atomically, keeping a <c>.bak</c>. Never throws.
+    /// </summary>
     public static void Save(ArenaModeSaves instance)
     {
-        File.WriteAllText(UserData.Paths.ArenaModeSaves, JsonConvert.SerializeObject(instance));
+        instance.FormatVersion = SaveFormat.ArenaModeSavesVersion;
+        SaveFile.TryWriteAllText(UserData.Paths.ArenaModeSaves, JsonConvert.SerializeObject(instance), "arena saves");
     }
+
+    /// <summary>
+    /// The format of the file this was read from, migrated to <see cref="SaveFormat.ArenaModeSavesVersion"/> on load.
+    /// </summary>
+    public int FormatVersion = SaveFormat.ArenaModeSavesVersion;
 
     public ArenaModeSave[] Saves = [];
 

@@ -64,10 +64,25 @@ public static class CharacterStatsDeserialiser
     }
 
     /// <summary>
-    /// Save the given stats to the given path. 
+    /// Load <see cref="CharacterStats"/> from the text of a <c>.stats</c> file.
+    /// </summary>
+    /// <param name="input">The text of a <c>.stats</c> file.</param>
+    /// <param name="location">Where it came from, for error messages.</param>
+    public static CharacterStats Load(Stream input, string location)
+        => deserialiser.Deserialise(input, location);
+
+    /// <summary>
+    /// Save the given stats to the given path, atomically (see <see cref="SaveFile"/>). No backup is kept: this writes
+    /// editor and asset files.
     /// </summary>
     /// <exception cref="IOException"></exception>
     public static void Save(CharacterStats stats, string path)
+        => SaveFile.WriteAllText(path, Serialise(stats), keepBackup: false);
+
+    /// <summary>
+    /// The text of a <c>.stats</c> file for <paramref name="stats"/>, starting with the version line.
+    /// </summary>
+    public static string Serialise(CharacterStats stats)
     {
         StringBuilder writer = new();
 
@@ -112,7 +127,7 @@ public static class CharacterStatsDeserialiser
 
         writer.AppendLineFormat("agility_skill_level {0}", stats.AgilitySkillLevel.ToString());
 
-        File.WriteAllText(path, writer.ToString());
+        return writer.ToString();
     }
 
     public static Type GetAbilityTypeFromString(string a)
