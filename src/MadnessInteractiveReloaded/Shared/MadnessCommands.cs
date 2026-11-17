@@ -128,11 +128,14 @@ public static class MadnessCommands
         return "AI enabled";
     }
 
-    [Command(HelpString = "Start the benchmark sequence")]
-    public static CommandResult Benchmark()
+    [Command(HelpString = "Runs the benchmark: benchmark [ai] [seconds]. N AI fight an invincible player while some are killed on a schedule; the frame times, GC and AI activity go to a CSV in the benchmarks folder.")]
+    public static CommandResult Benchmark(int ai = BenchmarkOptions.DefaultAi, int seconds = BenchmarkOptions.DefaultSeconds)
     {
-        game.Scene = BenchmarkScene.Create(game);
-        return "Benchmark started";
+        if (!BenchmarkOptions.TryCreate(ai, seconds, out var options, out var error))
+            return CommandResult.Error(error!);
+
+        game.Scene = BenchmarkScene.Create(game, options!);
+        return $"Benchmark started: {options!.AiCount} AI for {options.Seconds} s";
     }
 
     [Command(HelpString = "Sets development mode")]
