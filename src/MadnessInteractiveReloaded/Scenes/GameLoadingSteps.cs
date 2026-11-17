@@ -1,5 +1,7 @@
-﻿using System;
+﻿using MIR.Serialisation;
+using System;
 using System.IO;
+using System.Text;
 using Walgelijk;
 using Walgelijk.AssetManager;
 using Walgelijk.Localisation;
@@ -76,24 +78,20 @@ public static class GameLoadingSteps
     }
 
     /// <summary>
-    /// Load the player look or default it to the "grunt".
+    /// Load the player look or default it to the "grunt". An unreadable <c>player.look</c> falls back to its <c>.bak</c>.
+    /// It is not moved aside: a look that uses armour from a mod that is not installed is unreadable now but fine later.
+    /// Only a look read from the file (or a missing file) marks <see cref="UserData.Loaded.PlayerLook"/>, so the exit save
+    /// does not overwrite a look this session could not read.
     /// </summary>
     public static void LoadPlayerLook()
     {
         Registries.Looks.Get("grunt").CopyTo(UserData.Instances.PlayerLook);
 
-        if (File.Exists(UserData.Paths.PlayerLookFile))
-        {
-            try
-            {
-                var read = CharacterLookDeserialiser.Load(UserData.Paths.PlayerLookFile);
-                read.CopyTo(UserData.Instances.PlayerLook);
-            }
-            catch (global::System.Exception e)
-            {
-                Logger.Error($"Failed to load player look: {e}");
-            }
-        }
+        var result = SaveFile.TryLoad(UserData.Paths.PlayerLookFile,
+            static text => CharacterLookDeserialiser.Load(new MemoryStream(Encoding.UTF8.GetBytes(text)), UserData.Paths.PlayerLookFile),
+            out var read, "player look", quarantine: false);
+        read?.CopyTo(UserData.Instances.PlayerLook);
+        UserData.Loaded.PlayerLook = result is SaveLoadResult.Loaded or SaveLoadResult.Missing;
 
         UserData.Instances.PlayerLook.Cosmetic = true;
     }

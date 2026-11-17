@@ -4,7 +4,8 @@ using Newtonsoft.Json;
 namespace MIR;
 
 /// <summary>
-/// Arena mode progress, <c>arena.json</c>. Arena mode does not exist yet: nothing loads this at startup.
+/// Arena mode progress, <c>arena.json</c>. Arena mode does not exist yet: nothing loads this at startup and nothing saves it
+/// (it used to be overwritten with an empty default at every exit, BUG-06). An existing file is left as it is.
 /// </summary>
 public class ArenaModeSaves
 {
@@ -21,7 +22,7 @@ public class ArenaModeSaves
     }
 
     /// <summary>
-    /// Writes <c>arena.json</c>, atomically, keeping a <c>.bak</c>. Never throws.
+    /// Writes <c>arena.json</c>, atomically, keeping a <c>.bak</c>. Not called until Arena mode exists. Never throws.
     /// </summary>
     public static void Save(ArenaModeSaves instance)
     {

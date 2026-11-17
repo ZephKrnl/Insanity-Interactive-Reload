@@ -200,6 +200,8 @@ public class CharacterCreationSystem : Walgelijk.System
             Ui.Layout.FitContainer(1, 1, false);
             if (Ui.Button(Localisation.Get("back")))
             {
+                // Save the look now, not only at exit, so a crash later in the session keeps it (BUG-05).
+                UserData.SavePlayerLook();
                 Game.Scene = MainMenuScene.Load(Game);
                 MadnessUtils.Flash(Colors.Black, 0.2f);
                 ThumbnailRenderer.ResetAllPosters();

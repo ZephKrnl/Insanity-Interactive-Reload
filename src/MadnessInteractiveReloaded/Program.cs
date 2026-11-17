@@ -64,6 +64,16 @@ public static class Program
             if (MadnessInteractiveReloaded.Game == null)
                 return;
 
+            // Save first, in case writing the report fails too. Each save is on its own and only what was loaded is
+            // written; a failing save must not stop the report.
+            try
+            {
+                MadnessInteractiveReloaded.SaveAll();
+            }
+            catch (Exception)
+            {
+            }
+
             string crashID = NameGenerator.Shared.GenerateName(5).ToString();
 
             string presentationPath = Path.GetTempPath() + $"mir_{crashID}.html";

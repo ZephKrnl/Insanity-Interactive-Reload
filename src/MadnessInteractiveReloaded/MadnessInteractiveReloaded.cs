@@ -260,30 +260,33 @@ void main()
             // a while or throw, and also when the loop itself throws.
             Gamepad.StopRumble();
             WinTimerResolution.End();
+
+            // Save here, not after the try, so progress, the look and settings are also saved when the loop throws (BUG-05).
+            // SaveAll never throws, so it cannot hide the loop's exception. arena.json is no longer written (BUG-06).
+            SaveAll();
         }
 
-        // TODO handle error
         // TODO invoke mod unload thing i dont remember
-
-        Settings.WriteToFile(UserData.Paths.Settings, UserData.Instances.Settings);
-        CharacterLookDeserialiser.Save(UserData.Instances.PlayerLook, UserData.Paths.PlayerLookFile);
-        ArenaModeSaves.Save(UserData.Instances.ArenaMode);
-        ImprobabilityDisks.SaveUnlocked(UserData.Instances.UnlockedImprobabilityDisks);
-
-        foreach (var item in Registries.CampaignStats.GetAllValues())
-            try
-            {
-                if (Registries.Campaigns.Has(item.CampaignId))
-                    item.Save();
-            }
-            catch (System.Exception e)
-            {
-                Logger.Error($"Failed to save campaign stats & progress for {item.CampaignId}: {e}");
-            }
 
         Game.Scene.Dispose();
         Resources.UnloadAll();
         Assets.ClearRegistry();
+    }
+
+    /// <summary>
+    /// Saves everything that is saved at exit (see <see cref="UserData.SaveAll"/>): each save on its own, errors logged, never
+    /// throws. Called when the game loop ends, normally or not, and by the crash handler.
+    /// </summary>
+    public static void SaveAll()
+    {
+        try
+        {
+            UserData.SaveAll();
+        }
+        catch (Exception e)
+        {
+            Logger.Error($"Saving at exit failed: {e}");
+        }
     }
 
     private void MigrateSaveData()
