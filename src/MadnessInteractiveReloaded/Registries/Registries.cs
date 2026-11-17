@@ -128,12 +128,15 @@ public static class Registries
     {
         CampaignStats.Clear();
 
+        // Unreadable files are recovered from their backup, or moved aside so CampaignStats.CreateFor starts that campaign
+        // fresh instead of finding a file it cannot use (BUG-02).
         if (Directory.Exists(UserData.Paths.CampaignStatsDir))
-            foreach (var file in Directory.EnumerateFiles(UserData.Paths.CampaignStatsDir, "*.json", SearchOption.AllDirectories))
+            foreach (var file in MIR.CampaignStats.EnumerateFiles(UserData.Paths.CampaignStatsDir))
                 try
                 {
-                    var c = JsonConvert.DeserializeObject<CampaignStats>(File.ReadAllText(file)) ?? throw new Exception("Null campaign stats");
-                    CampaignStats.Register(c.CampaignId, c);
+                    var c = MIR.CampaignStats.Load(file);
+                    if (c != null)
+                        CampaignStats.Register(c.CampaignId, c);
                 }
                 catch (Exception e)
                 {

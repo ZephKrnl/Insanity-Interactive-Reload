@@ -1,4 +1,5 @@
-﻿using Newtonsoft.Json;
+﻿using MIR.Serialisation;
+using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -16,6 +17,12 @@ public class CampaignStats
     /// The associated campaign
     /// </summary>
     public string CampaignId = string.Empty;
+
+    /// <summary>
+    /// The format of the file this was read from, migrated to <see cref="SaveFormat.CampaignStatsVersion"/> on load. A file
+    /// without one (from MIR, or IIR before versions) counts as 0.
+    /// </summary>
+    public int FormatVersion = SaveFormat.CampaignStatsVersion;
 
     /// <summary>
     /// Current level progress
@@ -103,30 +110,63 @@ public class CampaignStats
     }
 
     /// <summary>
-    /// Create a <see cref="CampaignStats"/> registry (<see cref="Registries.CampaignStats"/>) entry and instance for the given campaign ID
+    /// Create a <see cref="CampaignStats"/> registry (<see cref="Registries.CampaignStats"/>) entry and instance for the given campaign ID.
+    /// When a file for it exists (the registry did not load it), it is read with the usual recovery: its backup is used if it
+    /// is unreadable, and an unreadable file is moved aside to <c>.corrupt-…</c> so the campaign starts fresh. It never
+    /// throws because of the file.
     /// </summary>
-    /// <exception cref="InvalidOperationException"></exception>
+    /// <exception cref="InvalidOperationException">The registry already has an entry for <paramref name="campaignId"/>.</exception>
     public static CampaignStats CreateFor(string campaignId)
     {
         if (Registries.CampaignStats.Has(campaignId))
             throw new InvalidOperationException("The registry already contains a campaign stats entry for " + campaignId);
 
-        var path = UserData.Paths.CampaignStatsDir + campaignId + ".json";
-        if (File.Exists(path))
-            throw new InvalidOperationException($"The registry does not contain a campaign stats entry for {campaignId}, but a file for it already exists at {path}");
+        var stats = Load(UserData.Paths.CampaignStatsDir + campaignId + ".json");
+        if (stats != null)
+            stats.CampaignId = campaignId; // the file is named after the campaign; that wins over what it says inside
+        stats ??= new CampaignStats(campaignId);
 
-        var stats = new CampaignStats(campaignId);
         Registries.CampaignStats.Register(campaignId, stats);
-
         return stats;
     }
 
     /// <summary>
-    /// Save the changes to the file at <see cref="GetFilePath"/>
+    /// Read a campaign stats file, with recovery (see <see cref="SaveFile.TryLoad"/>): an unreadable file falls back to its
+    /// <c>.bak</c>, and is moved aside to <c>.corrupt-…</c>. Files without a version (MIR's) are migrated.
+    /// </summary>
+    /// <returns>The stats, or null when there is no readable file or backup.</returns>
+    public static CampaignStats? Load(string path)
+    {
+        SaveFile.TryLoad(path, static json => SaveFormat.DeserialiseJson<CampaignStats>(json, SaveKind.CampaignStats),
+            out var stats, "campaign progress");
+        return stats;
+    }
+
+    /// <summary>
+    /// The campaign stats files in <paramref name="directory"/> (and below): every <c>*.json</c>, plus the file a lone
+    /// <c>*.json.bak</c> belongs to, so <see cref="Load"/> can recover it. Temporary and quarantined files are skipped.
+    /// </summary>
+    public static IEnumerable<string> EnumerateFiles(string directory)
+    {
+        var files = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var file in Directory.EnumerateFiles(directory, "*", SearchOption.AllDirectories))
+        {
+            if (file.EndsWith(".json", StringComparison.OrdinalIgnoreCase))
+                files.Add(file);
+            else if (file.EndsWith(".json" + SaveFile.BackupSuffix, StringComparison.OrdinalIgnoreCase))
+                files.Add(file[..^SaveFile.BackupSuffix.Length]);
+        }
+        return files;
+    }
+
+    /// <summary>
+    /// Save the changes to the file at <see cref="GetFilePath"/>, atomically, keeping the previous file as <c>.bak</c>.
+    /// Never throws; a failure (a read-only folder, for example) is logged.
     /// </summary>
     public void Save()
     {
+        FormatVersion = SaveFormat.CampaignStatsVersion;
         var json = JsonConvert.SerializeObject(this);
-        File.WriteAllText(GetFilePath(), json);
+        SaveFile.TryWriteAllText(GetFilePath(), json, "campaign progress for " + CampaignId);
     }
 }
