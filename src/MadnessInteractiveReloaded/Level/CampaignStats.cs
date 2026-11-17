@@ -25,6 +25,13 @@ public class CampaignStats
     public int FormatVersion = SaveFormat.CampaignStatsVersion;
 
     /// <summary>
+    /// True when its file existed but could not be opened at load (locked by another program, or no access). The stats are
+    /// used in memory, but <see cref="Save"/> does nothing for the rest of the session, so the file is never overwritten.
+    /// </summary>
+    [JsonIgnore]
+    public bool DoNotSave { get; set; }
+
+    /// <summary>
     /// Current level progress
     /// </summary>
     public int LevelIndex;
@@ -112,8 +119,8 @@ public class CampaignStats
     /// <summary>
     /// Create a <see cref="CampaignStats"/> registry (<see cref="Registries.CampaignStats"/>) entry and instance for the given campaign ID.
     /// When a file for it exists (the registry did not load it), it is read with the usual recovery: its backup is used if it
-    /// is unreadable, and an unreadable file is moved aside to <c>.corrupt-…</c> so the campaign starts fresh. It never
-    /// throws because of the file.
+    /// is unreadable, and an unreadable file is moved aside to <c>.corrupt-…</c> so the campaign starts fresh. A file that
+    /// cannot be opened gives stats that are never saved (<see cref="DoNotSave"/>). It never throws because of the file.
     /// </summary>
     /// <exception cref="InvalidOperationException">The registry already has an entry for <paramref name="campaignId"/>.</exception>
     public static CampaignStats CreateFor(string campaignId)
@@ -134,11 +141,19 @@ public class CampaignStats
     /// Read a campaign stats file, with recovery (see <see cref="SaveFile.TryLoad"/>): an unreadable file falls back to its
     /// <c>.bak</c>, and is moved aside to <c>.corrupt-…</c>. Files without a version (MIR's) are migrated.
     /// </summary>
-    /// <returns>The stats, or null when there is no readable file or backup.</returns>
+    /// <returns>The stats, or null when there is no readable file or backup. When the file exists but cannot be opened, stats
+    /// marked <see cref="DoNotSave"/>: its backup's, or fresh ones named after the file.</returns>
     public static CampaignStats? Load(string path)
     {
-        SaveFile.TryLoad(path, static json => SaveFormat.DeserialiseJson<CampaignStats>(json, SaveKind.CampaignStats),
+        var result = SaveFile.TryLoad(path, static json => SaveFormat.DeserialiseJson<CampaignStats>(json, SaveKind.CampaignStats),
             out var stats, "campaign progress");
+
+        if (result == SaveLoadResult.Inaccessible)
+        {
+            stats ??= new CampaignStats(Path.GetFileNameWithoutExtension(path));
+            stats.DoNotSave = true;
+        }
+
         return stats;
     }
 
@@ -161,10 +176,13 @@ public class CampaignStats
 
     /// <summary>
     /// Save the changes to the file at <see cref="GetFilePath"/>, atomically, keeping the previous file as <c>.bak</c>.
-    /// Never throws; a failure (a read-only folder, for example) is logged.
+    /// Never throws; a failure (a read-only folder, for example) is logged. Does nothing when <see cref="DoNotSave"/> is set.
     /// </summary>
     public void Save()
     {
+        if (DoNotSave)
+            return; // the file could not be opened at load; that was logged then
+
         FormatVersion = SaveFormat.CampaignStatsVersion;
         var json = JsonConvert.SerializeObject(this);
         SaveFile.TryWriteAllText(GetFilePath(), json, "campaign progress for " + CampaignId);

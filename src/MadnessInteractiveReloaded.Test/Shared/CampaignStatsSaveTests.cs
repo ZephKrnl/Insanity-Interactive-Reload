@@ -156,6 +156,55 @@ public class CampaignStatsSaveTests : IDisposable
         create.Should().NotThrow().Which.LevelIndex.Should().Be(0);
     }
 
+    private static FileStream Lock(string path) => new(path, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+    [Fact]
+    public void A_locked_campaign_file_is_kept_in_memory_and_never_saved()
+    {
+        File.WriteAllText(PathFor(Id), WrittenByMir);
+        var original = File.ReadAllBytes(PathFor(Id));
+
+        CampaignStats stats;
+        using (Lock(PathFor(Id)))
+        {
+            Registries.LoadCampaignsStats();
+            stats = Registries.CampaignStats.Get(Id);
+            stats.DoNotSave.Should().BeTrue();
+            stats.Save();
+        }
+
+        stats.LevelIndex = 9; // the next level end, after whatever held the file let go
+        stats.Save();
+        stats.Save();
+
+        File.ReadAllBytes(PathFor(Id)).Should().Equal(original);
+        File.Exists(PathFor(Id) + SaveFile.BackupSuffix).Should().BeFalse("the original is never rotated into a backup");
+        Quarantined(Id).Should().BeEmpty();
+    }
+
+    [Fact]
+    public void CreateFor_with_a_locked_file_keeps_stats_in_memory_and_never_saves()
+    {
+        File.WriteAllText(PathFor(Id), WrittenByMir);
+        var original = File.ReadAllBytes(PathFor(Id));
+
+        CampaignStats stats;
+        using (Lock(PathFor(Id)))
+        {
+            var create = () => CampaignStats.CreateFor(Id);
+            stats = create.Should().NotThrow().Subject;
+        }
+
+        stats.DoNotSave.Should().BeTrue();
+        Registries.CampaignStats.Get(Id).Should().BeSameAs(stats);
+        stats.LevelIndex = 3;
+        stats.Save();
+        stats.Save();
+
+        File.ReadAllBytes(PathFor(Id)).Should().Equal(original);
+        File.Exists(PathFor(Id) + SaveFile.BackupSuffix).Should().BeFalse();
+    }
+
     [Fact]
     public void Loading_ignores_temp_and_quarantined_files_and_restores_a_lone_backup()
     {

@@ -54,11 +54,10 @@ public static class GameLoadingScene
             Onion.HoverSound = Sounds.UiHover;
             Onion.ActiveSound = Sounds.UiPress;
 
-            Settings.TryReadFromFile(UserData.Paths.Settings, ref UserData.Instances.Settings);
-            UserData.Loaded.Settings = true;
+            // Each marks itself loaded (saved at exit) unless its file exists but could not be opened.
+            UserData.LoadSettings();
             UserData.Instances.Settings.Apply(Game.Main);
-            UserData.Instances.UnlockedImprobabilityDisks = [..ImprobabilityDisks.LoadUnlocked()];
-            UserData.Loaded.ImprobabilityDisks = true;
+            UserData.LoadUnlockedImprobabilityDisks();
         }, false),
     ];
 

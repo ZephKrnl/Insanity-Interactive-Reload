@@ -238,6 +238,68 @@ public class SaveFileTests : IDisposable
         Directory.Exists(Path.Combine(root, "missing")).Should().BeFalse();
     }
 
+    private FileStream LockFile() => new(FilePath, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+
+    [Fact]
+    public void A_locked_file_is_inaccessible_and_never_written_this_session()
+    {
+        SaveFile.WriteAllText(FilePath, "value=good;");
+        var original = File.ReadAllBytes(FilePath);
+
+        using (LockFile())
+        {
+            SaveFile.TryLoad(FilePath, Parse, out var loaded, "test save").Should().Be(SaveLoadResult.Inaccessible);
+            loaded.Should().BeNull();
+            SaveFile.TryWriteAllText(FilePath, "value=fresh;", "test save").Should().BeFalse();
+        }
+
+        SaveFile.IsWriteBlocked(FilePath).Should().BeTrue();
+        SaveFile.TryWriteAllText(FilePath, "value=fresh;", "test save").Should().BeFalse("the file stays protected after the lock is gone");
+        var write = () => SaveFile.WriteAllText(FilePath, "value=fresh;");
+        write.Should().Throw<IOException>();
+
+        File.ReadAllBytes(FilePath).Should().Equal(original);
+        File.Exists(Bak).Should().BeFalse("the original was never rotated into a backup");
+        Corrupted(FilePath).Should().BeEmpty("a file that could not be opened is not corrupt");
+    }
+
+    [Fact]
+    public void A_locked_file_with_a_readable_backup_loads_the_backup_but_is_never_written()
+    {
+        SaveFile.WriteAllText(FilePath, "value=older;");
+        SaveFile.WriteAllText(FilePath, "value=newer;");
+        var original = File.ReadAllBytes(FilePath);
+        var originalBak = File.ReadAllBytes(Bak);
+
+        using (LockFile())
+        {
+            SaveFile.TryLoad(FilePath, Parse, out var loaded, "test save").Should().Be(SaveLoadResult.Inaccessible);
+            loaded.Should().Be("older", "the backup is used in memory for this session");
+        }
+
+        SaveFile.TryWriteAllText(FilePath, "value=session;", "test save").Should().BeFalse();
+        SaveFile.TryWriteAllText(FilePath, "value=session again;", "test save").Should().BeFalse();
+
+        File.ReadAllBytes(FilePath).Should().Equal(original);
+        File.ReadAllBytes(Bak).Should().Equal(originalBak);
+    }
+
+    [Fact]
+    public void A_locked_backup_without_its_file_is_inaccessible_and_never_written()
+    {
+        File.WriteAllText(Bak, "value=previous;");
+        var originalBak = File.ReadAllBytes(Bak);
+
+        using (new FileStream(Bak, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            SaveFile.TryLoad(FilePath, Parse, out _, "test save").Should().Be(SaveLoadResult.Inaccessible);
+
+        SaveFile.TryWriteAllText(FilePath, "value=one;", "test save").Should().BeFalse();
+        SaveFile.TryWriteAllText(FilePath, "value=two;", "test save").Should().BeFalse();
+
+        File.Exists(FilePath).Should().BeFalse();
+        File.ReadAllBytes(Bak).Should().Equal(originalBak);
+    }
+
     [Fact]
     public void TryWrite_writes_atomically_too()
     {

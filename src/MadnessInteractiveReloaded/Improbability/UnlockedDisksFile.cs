@@ -67,9 +67,14 @@ public static class UnlockedDisksFile
     /// <summary>
     /// The IDs in <paramref name="path"/>, falling back to its <c>.bak</c>; empty when there is neither.
     /// </summary>
-    public static string[] Load(string path)
+    public static string[] Load(string path) => Load(path, out _);
+
+    /// <summary>
+    /// <see cref="Load(string)"/>, also returning what was found (see <see cref="SaveLoadResult"/>).
+    /// </summary>
+    public static string[] Load(string path, out SaveLoadResult result)
     {
-        SaveFile.TryLoad(path, Parse, out var ids, "unlocked Improbability disks");
+        result = SaveFile.TryLoad(path, Parse, out var ids, "unlocked Improbability disks");
         return ids ?? [];
     }
 }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using MIR.Serialisation;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using Walgelijk;
@@ -49,15 +50,38 @@ public static class UserData
     /// </summary>
     public static class Loaded
     {
-        /// <summary>Set by the last loading step, which reads the settings.</summary>
+        /// <summary>Set by <see cref="LoadSettings"/>, unless <c>settings.json</c> exists but could not be opened.</summary>
         public static bool Settings;
 
         /// <summary>Set when <c>player.look</c> was read or is missing, or the player saved a look. Stays false when the
         /// file could not be read (for example, it uses armour from a mod that is not installed), so it is not overwritten.</summary>
         public static bool PlayerLook;
 
-        /// <summary>Set by the last loading step, which reads <c>disks.txt</c>.</summary>
+        /// <summary>Set by <see cref="LoadUnlockedImprobabilityDisks"/>, unless <c>disks.txt</c> exists but could not be opened.</summary>
         public static bool ImprobabilityDisks;
+    }
+
+    /// <summary>
+    /// Reads <c>settings.json</c> into <see cref="Instances.Settings"/>. Marks the settings loaded (saved at exit) unless the
+    /// file exists but could not be opened: then they are used from its backup or defaults, and never written.
+    /// </summary>
+    public static SaveLoadResult LoadSettings()
+    {
+        var result = MIR.Settings.ReadFromFile(Paths.Settings, ref Instances.Settings);
+        Loaded.Settings = result != SaveLoadResult.Inaccessible;
+        return result;
+    }
+
+    /// <summary>
+    /// Reads <c>disks.txt</c> into <see cref="Instances.UnlockedImprobabilityDisks"/>. Marks them loaded (saved on unlock and
+    /// at exit) unless the file exists but could not be opened.
+    /// </summary>
+    public static SaveLoadResult LoadUnlockedImprobabilityDisks()
+    {
+        var ids = UnlockedDisksFile.Load(Paths.UnlockedImprobabilityDisk, out var result);
+        Instances.UnlockedImprobabilityDisks = [.. ids];
+        Loaded.ImprobabilityDisks = result != SaveLoadResult.Inaccessible;
+        return result;
     }
 
     /// <summary>

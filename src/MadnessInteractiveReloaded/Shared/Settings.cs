@@ -227,12 +227,21 @@ public class Settings
     /// <returns>True when settings were read, from the file or its backup. <paramref name="s"/> is left as it is otherwise.</returns>
     public static bool TryReadFromFile(string path, ref Settings s)
     {
-        SaveFile.TryLoad(path, Parse, out var read, "settings");
-        if (read == null)
-            return false;
+        var before = s;
+        ReadFromFile(path, ref s);
+        return !ReferenceEquals(before, s);
+    }
 
-        s = read;
-        return true;
+    /// <summary>
+    /// <see cref="TryReadFromFile"/>, returning what was found. On <see cref="SaveLoadResult.Inaccessible"/> the file could
+    /// not be opened and will not be written this session; <paramref name="s"/> then holds its backup's settings, if any.
+    /// </summary>
+    public static SaveLoadResult ReadFromFile(string path, ref Settings s)
+    {
+        var result = SaveFile.TryLoad(path, Parse, out var read, "settings");
+        if (read != null)
+            s = read;
+        return result;
     }
 
     private static Settings Parse(string json)
