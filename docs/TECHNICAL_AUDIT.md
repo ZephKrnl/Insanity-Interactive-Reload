@@ -1073,6 +1073,7 @@ The 8 High rows: 1 performance, 1 save, 1 security, 2 release and 3 legal. Five 
 | BUG-108 | Med (size and IP) | Assets | `base/textures/backgrounds/madness combat/` (59 QOI, 36.1 MiB (37.8 MB)); `sounds/music/madness_4_party.ogg` (4 MB) | Unreferenced Krinkels-derived episode backgrounds and an unreferenced track ship inside `base.waa`. | Delete them, or move them out of `base/`. | M5-LIC · [06] §3, [04] §7 |
 | BUG-109 | Low | Tools | `src/MadnessInteractiveReloaded/png2qoi.py:15-17` | Passes the bare file name in directory mode, so it only works when run from inside the folder. | `os.path.join(input, p)`. | M5-LIC · [06] §3 |
 | BUG-110 | Low | Assets | `base/fonts` and `resources/fonts` | `roboto mono.fnt/.png` exists in both places. | Keep one copy. | M5-LIC · [06] §3 |
+| BUG-111 | Med | Incident mode | `base/data/levels/incident/lvl_incident_end_2.json:64` | Its boss NPC uses look `mag`, which does not exist (the shipped looks are `mag_agent` and `mag_rich`). `LevelDeserialiser.AssertValidLevel` throws when the level is loaded, so whenever Incident mode picks this end level (`IncidentConfig.cs:27`) the level fails to load. Found by `AllBaseDataLoadsTests` (WP-04); recorded there as a skipped known failure, `Known_broken_level_loads`. | Choose the intended look (`mag_agent` or `mag_rich`) and set it, then remove the level from `KnownBrokenLevels` in the test. | M1-FIX-LEVEL · WP-04 |
 
 ---
 
