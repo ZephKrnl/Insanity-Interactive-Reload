@@ -60,6 +60,13 @@ public static class SaveFile
     private static readonly UTF8Encoding Utf8NoBom = new(encoderShouldEmitUTF8Identifier: false);
 
     /// <summary>
+    /// <c>File.Replace(source, destination, backup)</c>. A seam, so tests can make the swap fail part way.
+    /// </summary>
+    /// It ignores errors copying attributes and permissions to the new file, which are not worth failing a save over.
+    internal static Action<string, string, string?> ReplaceFile = static (source, destination, backup)
+        => File.Replace(source, destination, backup, ignoreMetadataErrors: true);
+
+    /// <summary>
     /// Files that could not be opened at load, by full path. Nothing writes them for the rest of the session.
     /// </summary>
     private static readonly ConcurrentDictionary<string, string> blockedPaths = new(StringComparer.OrdinalIgnoreCase);
@@ -79,8 +86,9 @@ public static class SaveFile
 
     /// <summary>
     /// Writes whatever <paramref name="write"/> puts in the stream to <paramref name="path"/>, atomically, and logs the save.
-    /// Throws when the write fails; the existing file is not touched until the new contents are complete on disk, and the
-    /// temp file is removed. Thread-safe for different paths.
+    /// Throws when the write fails; the existing file is not touched until the new contents are complete on disk. A half-written
+    /// temp file is removed; a complete one is never deleted: if the swap fails after the file became the .bak, the new file
+    /// is moved into place (no throw), otherwise it is kept as &lt;file&gt;.tmp and logged. Thread-safe for different paths.
     /// </summary>
     /// <param name="path">The file to write.</param>
     /// <param name="write">Writes the new contents to the stream it is given.</param>
@@ -93,6 +101,7 @@ public static class SaveFile
             throw new SaveBlockedException(path);
 
         var tmp = path + TempSuffix;
+        var tmpComplete = false;
         try
         {
             using (var stream = new FileStream(tmp, FileMode.Create, FileAccess.Write, FileShare.None))
@@ -100,17 +109,41 @@ public static class SaveFile
                 write(stream);
                 stream.Flush(flushToDisk: true);
             }
+            tmpComplete = true;
 
             if (File.Exists(path))
-                File.Replace(tmp, path, keepBackup ? path + BackupSuffix : null);
+                ReplaceFile(tmp, path, keepBackup ? path + BackupSuffix : null);
             else
                 File.Move(tmp, path);
 
             Logger.Log($"Saved \"{Path.GetFileName(path)}\"");
         }
-        catch
+        catch (Exception e)
         {
-            TryDelete(tmp);
+            if (!tmpComplete)
+            {
+                TryDelete(tmp); // half-written: worthless, and the file was never touched
+                throw;
+            }
+
+            // The new contents are complete in the .tmp, so never delete it. If the swap failed after the file was already
+            // renamed to .bak, there is no file now: move the new one into place, and the save has worked after all.
+            if (!File.Exists(path) && File.Exists(tmp))
+            {
+                try
+                {
+                    File.Move(tmp, path);
+                    Logger.Warn($"Saved \"{Path.GetFileName(path)}\" after the swap failed part way ({e.GetType().Name}: {e.Message})");
+                    return;
+                }
+                catch (Exception moveError)
+                {
+                    Logger.Error($"Could not move the new save \"{tmp}\" into place: {moveError.GetType().Name}: {moveError.Message}");
+                }
+            }
+
+            if (File.Exists(tmp))
+                Logger.Error($"Could not swap in \"{path}\" ({e.GetType().Name}: {e.Message}). The complete new save is kept as \"{Path.GetFileName(tmp)}\".");
             throw;
         }
     }

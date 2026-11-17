@@ -225,7 +225,7 @@ public class SaveFileTests : IDisposable
         SaveFile.TryWriteAllText(FilePath, "value=new;", "test save").Should().BeFalse();
 
         File.ReadAllText(FilePath).Should().Be("value=good;");
-        File.Exists(Tmp).Should().BeFalse("a failed write cleans up its temp file");
+        File.ReadAllText(Tmp).Should().Be("value=new;", "a complete new save is never deleted; the next write replaces it");
     }
 
     [Fact]
@@ -298,6 +298,65 @@ public class SaveFileTests : IDisposable
 
         File.Exists(FilePath).Should().BeFalse();
         File.ReadAllBytes(Bak).Should().Equal(originalBak);
+    }
+
+    /// <summary>
+    /// Runs <paramref name="act"/> with <see cref="SaveFile.ReplaceFile"/> replaced by <paramref name="fake"/> for this test's
+    /// file only. Every other path still gets the real one, so tests running in parallel are not affected.
+    /// </summary>
+    private void WithReplace(Action<string, string, string?> fake, Action act)
+    {
+        var real = SaveFile.ReplaceFile;
+        SaveFile.ReplaceFile = (source, destination, backup) =>
+        {
+            if (string.Equals(Path.GetFullPath(destination), Path.GetFullPath(FilePath), StringComparison.OrdinalIgnoreCase))
+                fake(source, destination, backup);
+            else
+                real(source, destination, backup);
+        };
+        try
+        {
+            act();
+        }
+        finally
+        {
+            SaveFile.ReplaceFile = real;
+        }
+    }
+
+    [Fact]
+    public void A_swap_that_fails_after_moving_the_file_to_bak_still_ends_with_the_new_file()
+    {
+        SaveFile.WriteAllText(FilePath, "value=old;");
+
+        WithReplace((source, destination, backup) =>
+        {
+            File.Move(destination, backup!, overwrite: true); // the file has already become the backup...
+            throw new IOException("simulated failure after the rename"); // ...when the swap fails
+        }, () =>
+        {
+            var write = () => SaveFile.WriteAllText(FilePath, "value=new;");
+            write.Should().NotThrow("the complete new contents are moved into place");
+        });
+
+        File.ReadAllText(FilePath).Should().Be("value=new;");
+        File.ReadAllText(Bak).Should().Be("value=old;");
+        File.Exists(Tmp).Should().BeFalse();
+    }
+
+    [Fact]
+    public void A_swap_that_fails_before_touching_the_file_keeps_the_complete_new_save()
+    {
+        SaveFile.WriteAllText(FilePath, "value=old;");
+
+        WithReplace((_, _, _) => throw new IOException("simulated failure before the rename"), () =>
+        {
+            var write = () => SaveFile.WriteAllText(FilePath, "value=new;");
+            write.Should().Throw<IOException>();
+        });
+
+        File.ReadAllText(FilePath).Should().Be("value=old;", "the file is untouched");
+        File.ReadAllText(Tmp).Should().Be("value=new;", "a complete new save is never deleted");
     }
 
     [Fact]
