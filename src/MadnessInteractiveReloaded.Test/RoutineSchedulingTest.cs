@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using Walgelijk;
 using Xunit;
 
+[Xunit.Collection("Registry collection")]
 public class RoutineSchedulingTest
 {
     private const float dt = 1 / 60f;
