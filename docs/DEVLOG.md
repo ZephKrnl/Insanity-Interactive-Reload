@@ -238,6 +238,45 @@ These need a play session. The roadmap's manual checklist stays open for them.
 
 ---
 
+## 2026-11-18: WP-03 `fix/save-robustness` merged (`40c3a52..c9e414e`)
+
+**Done** (BUG-02 … BUG-10, BUG-21; the save half of F-ARCH)
+- `SaveFile`: atomic writes. Write `.tmp`, flush to disk, then `File.Replace` with a `.bak`. Load falls back to `.bak`.
+  - An unparsable file is renamed `.corrupt-<timestamp>`, never deleted.
+  - A file that can't be opened is `Inaccessible`: it isn't loaded or written this session, and that is logged once.
+  - A complete `.tmp` is never deleted after a failed swap.
+- `SaveFormat`: per-type format versions, with a migration hook. A file with no version counts as version 0.
+- Settings, campaign stats, disks, the player look, presets and arena are versioned and saved atomically.
+- Settings save on the main thread 0.5 s after the last change (no `Task.Run`).
+- A corrupt campaign file is recovered instead of throwing every frame (BUG-02).
+- `arena.json` is no longer written at exit (BUG-06).
+- The look is saved when leaving character creation (BUG-05).
+- An unreadable look is moved aside to `.unloaded-<ts>` before it would be overwritten.
+- `SaveAll()` runs once per exit, first in the `finally`, and from the crash handler.
+- The MIR→IIR migration copies through a staging folder and retries an unfinished copy. On a conflict it keeps the MIR file as `<name>.legacy` (BUG-08).
+- Removed the dead `./userdata` migration (BUG-09; proven unreachable).
+- BUG-10: `GameVersion` is unchanged, for mods. Saves carry their own format versions. The credit uses `Branding.MirBaseVersion`.
+
+**Verified**
+- 310/310 tests pass, 100 of them new. Tests use temp folders only and never the real save folders.
+- Backward compatibility is tested against MIR-shaped settings and campaign files, `.look` and `.preset` version lines from 0.1.18 to 0.51.1, and unversioned `disks.txt` and `arena.json`.
+- Independent review found 4 rare data-loss paths, plus 1 added by the controller. All 5 were fixed in one round and confirmed by re-review.
+
+**Not verified** (needs a play session, with the IIR save folder backed up first)
+- A real first launch, both with and without a MIR folder.
+- A hand-corrupted campaign file.
+- Killing the process mid-level.
+- No save storm while dragging a settings slider.
+- A save folder with write access denied.
+- The Release crash-handler path at runtime (it was only compile-checked).
+
+**Known trade-offs**
+- A locked save stays blocked until restart.
+- A leftover complete `.tmp` isn't recovered automatically.
+- `.legacy` files need a manual restore.
+
+---
+
 ## How to keep this log
 
 - **One entry per merged branch.** Also add one for each non-code event that matters: a letter sent, a reply received, a decision made, a commission signed, a release.
