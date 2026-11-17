@@ -15,7 +15,14 @@ public static class Program
     public static string BaseDirectory => Environment.CurrentDirectory;
 #endif
 
-    private static void Main(string? mode = null, string? input = null, string? output = null)
+    /// <param name="mode"><c>pack</c> builds an asset package from <paramref name="input"/> into <paramref name="output"/>.
+    /// <c>benchmark</c> runs the benchmark unattended, writes its CSV (to <paramref name="output"/> when given) and exits.</param>
+    /// <param name="input">The folder to pack (<c>pack</c>).</param>
+    /// <param name="output">The package to write (<c>pack</c>), or the folder for the CSV (<c>benchmark</c>).</param>
+    /// <param name="ai">The number of AI in the benchmark (<c>benchmark</c>).</param>
+    /// <param name="seconds">How long the benchmark measures, in seconds (<c>benchmark</c>).</param>
+    private static void Main(string? mode = null, string? input = null, string? output = null,
+        int ai = BenchmarkOptions.DefaultAi, int seconds = BenchmarkOptions.DefaultSeconds)
     {
         // First, before anything can ask for the game assembly by its old name (mods, levels, cutscenes).
         LegacyAssemblyRedirect.Register();
@@ -46,6 +53,18 @@ public static class Program
 
                     Console.WriteLine("... done :)");
                     return;
+                }
+            case "benchmark":
+                {
+                    if (!BenchmarkOptions.TryCreate(ai, seconds, out var options, out var error))
+                    {
+                        Console.Error.WriteLine(error);
+                        return;
+                    }
+
+                    MadnessInteractiveReloaded.StartupBenchmark = options! with { ExitWhenDone = true, OutputDirectory = output };
+                    Console.WriteLine("benchmark mode: {0} AI for {1} s", options.AiCount, options.Seconds);
+                    break; // start the game; it runs the benchmark after loading and exits when it is done
                 }
         }
 

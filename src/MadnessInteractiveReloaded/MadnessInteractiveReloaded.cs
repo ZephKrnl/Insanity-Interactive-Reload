@@ -238,6 +238,15 @@ void main()
         // use cmd line args.
         GameLoadingScene.OnFinishedLoading += () =>
         {
+            if (StartupBenchmark != null)
+            {
+                // Unattended benchmark (--mode benchmark): no autoexec, so every run starts the same. The loading scene sets
+                // the main menu right after this event, so the benchmark scene replaces it a moment later.
+                var options = StartupBenchmark;
+                MadnessUtils.Delay(1, () => StartBenchmark(Game, options));
+                return;
+            }
+
             AutoExec.Run();
         };
 
@@ -271,6 +280,32 @@ void main()
         Game.Scene.Dispose();
         Resources.UnloadAll();
         Assets.ClearRegistry();
+    }
+
+    /// <summary>
+    /// Set by <c>--mode benchmark</c> before the game starts: run this benchmark as soon as loading finishes, then exit.
+    /// </summary>
+    public static BenchmarkOptions? StartupBenchmark;
+
+    private static void StartBenchmark(Game game, BenchmarkOptions options)
+    {
+        try
+        {
+            var scene = game.Scene = BenchmarkScene.Create(game, options);
+            scene.GetSystem<BenchmarkSystem>().Finished += b =>
+            {
+                if (b.CsvPath != null)
+                    Console.WriteLine("Benchmark written to " + b.CsvPath);
+                else
+                    Console.Error.WriteLine("Benchmark finished, but the CSV could not be written (see the log)");
+            };
+        }
+        catch (Exception e)
+        {
+            Logger.Error($"The benchmark could not start: {e}");
+            Console.Error.WriteLine("The benchmark could not start: " + e.Message);
+            game.Stop();
+        }
     }
 
     private static int exitSaveDone;
