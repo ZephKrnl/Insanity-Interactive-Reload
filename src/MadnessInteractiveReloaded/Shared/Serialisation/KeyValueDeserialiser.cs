@@ -114,7 +114,7 @@ public class KeyValueDeserialiser<T> where T : class, new()
         var target = new T();
         using var file = new StreamReader(input);
 
-        foreach (var line in BaseDeserialiser.Read(file))
+        foreach (var line in BaseDeserialiser.Read(file, debugLocation))
             try
             {
             ProcessLine:

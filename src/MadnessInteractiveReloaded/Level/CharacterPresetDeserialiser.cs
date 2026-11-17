@@ -59,7 +59,7 @@ public static class CharacterPresetDeserialiser
     public static void Save(string name, CharacterLook look, CharacterStats stats, string path)
     {
         var writer = new StringBuilder();
-        writer.AppendLine(GameVersion.Version.ToString());
+        writer.AppendLine(SaveFormat.TextFormatVersion.ToString());
         writer.AppendLineFormat("name {0}", name);
         if (Registries.Looks.TryGetKeyFor(look, out var k))
             writer.AppendLineFormat("look {0}", k);

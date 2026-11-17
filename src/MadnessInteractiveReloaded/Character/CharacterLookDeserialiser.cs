@@ -151,7 +151,7 @@ public static class CharacterLookDeserialiser
         => SaveFile.WriteAllText(path, Serialise(look), keepBackup);
 
     /// <summary>
-    /// The text of a <c>.look</c> file for <paramref name="look"/>, starting with the version line.
+    /// The text of a <c>.look</c> file for <paramref name="look"/>, starting with <see cref="SaveFormat.TextFormatVersion"/>.
     /// </summary>
     /// <exception cref="Exceptions.SerialisationException"></exception>
     public static string Serialise(CharacterLook look)
@@ -161,7 +161,7 @@ public static class CharacterLookDeserialiser
         var bodyAccessory = Registries.Armour.BodyAccessory;
         var headAccessory = Registries.Armour.HeadAccessory;
 
-        writer.AppendLine(GameVersion.Version.ToString());
+        writer.AppendLine(SaveFormat.TextFormatVersion.ToString());
         writer.AppendLine();
 
         // Write body

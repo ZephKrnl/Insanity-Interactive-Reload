@@ -94,6 +94,14 @@ public class BrandingTests
     }
 
     [Fact]
+    public void Based_on_credit_names_the_MIR_base_version_not_the_assembly_version()
+    {
+        MIR.Branding.MirBaseVersion.Should().Be("0.51.1");
+        MIR.Branding.BasedOn.Should().Be("Based on " + OldName + " v0.51.1 by Studio Minus");
+        MIR.Branding.DisplayVersion.Should().NotBe(MIR.Branding.MirBaseVersion, "IIR has its own version");
+    }
+
+    [Fact]
     public void Main_menu_links()
     {
         var links = MainMenuSystem.VisibleLinks();

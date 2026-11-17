@@ -80,13 +80,13 @@ public static class CharacterStatsDeserialiser
         => SaveFile.WriteAllText(path, Serialise(stats), keepBackup: false);
 
     /// <summary>
-    /// The text of a <c>.stats</c> file for <paramref name="stats"/>, starting with the version line.
+    /// The text of a <c>.stats</c> file for <paramref name="stats"/>, starting with <see cref="SaveFormat.TextFormatVersion"/>.
     /// </summary>
     public static string Serialise(CharacterStats stats)
     {
         StringBuilder writer = new();
 
-        writer.AppendLine(GameVersion.Version.ToString());
+        writer.AppendLine(SaveFormat.TextFormatVersion.ToString());
         writer.AppendLine();
         writer.AppendLineFormat("scale {0}", stats.Scale);
         writer.AppendLineFormat("hop_duration {0}", stats.WalkHopDuration);

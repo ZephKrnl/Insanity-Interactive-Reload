@@ -44,7 +44,7 @@ public static class MadnessCommands
     [Command(HelpString = "Print the game version")]
     public static string GameVersion()
     {
-        return MIR.GameVersion.Version.ToString();
+        return $"{Branding.NameAndVersion}, based on MIR {Branding.MirBaseVersion} (assembly {MIR.GameVersion.Version})";
     }
 
     [Command(HelpString = "Toggle physics debug")]
