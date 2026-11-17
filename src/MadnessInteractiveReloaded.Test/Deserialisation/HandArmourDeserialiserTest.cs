@@ -1,6 +1,9 @@
 ﻿using FluentAssertions;
 using MIR.Exceptions;
+using System;
+using System.Collections.Concurrent;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using Walgelijk;
 using Walgelijk.AssetManager;
@@ -13,13 +16,13 @@ public class HandArmourDeserialiserTest : global::System.IDisposable
 {
     public HandArmourDeserialiserTest()
     {
-        if (Assets.TryGetPackage("base", out _))
-            MadnessInteractiveReloaded.PrepareResourceInitialise();
+        BaseAssetsFixture.EnsureRegistered();
         Registries.ClearAll();
 
         Resources.BasePath = "resources";
         Resources.SetBasePathForType<IReadableTexture>("textures");
         Resources.SetBasePathForType<Texture>("textures");
+        previousTextureLoader = GetLoader(typeof(Texture));
         Resources.RegisterType(typeof(Texture), static path =>
         {
             if (!File.Exists(path))
@@ -27,6 +30,16 @@ public class HandArmourDeserialiserTest : global::System.IDisposable
             return new Texture(1, 1, false, false);
         });
     }
+
+    private readonly Func<string, object>? previousTextureLoader;
+
+    // Resources only offers RegisterType, not a way to read or remove a loader, so this goes through its private table
+    private static readonly FieldInfo loadFunctions = typeof(Resources).GetField("loadFunctions", BindingFlags.NonPublic | BindingFlags.Static)
+        ?? throw new InvalidOperationException("Resources.loadFunctions not found: Walgelijk changed, update this test");
+
+    private static ConcurrentDictionary<Type, Func<string, object>> Loaders => (ConcurrentDictionary<Type, Func<string, object>>)loadFunctions.GetValue(null)!;
+
+    private static Func<string, object>? GetLoader(Type type) => Loaders.TryGetValue(type, out var f) ? f : null;
 
     public struct HandTextures
     {
@@ -163,7 +176,7 @@ public class HandArmourDeserialiserTest : global::System.IDisposable
             id.IsValid.Should().BeTrue();
             expected.Should().NotBeNullOrWhiteSpace();
 
-            id.Id.Should().Be(new GlobalAssetId(expected));
+            id.Id.Should().Be(new GlobalAssetId(expected).ResolveExternal());
         }
     }
 
@@ -194,6 +207,11 @@ public class HandArmourDeserialiserTest : global::System.IDisposable
 
     public void Dispose()
     {
+        // put the Texture loader back, so this test's fake one doesn't leak into later tests
+        if (previousTextureLoader != null)
+            Loaders[typeof(Texture)] = previousTextureLoader;
+        else
+            Loaders.TryRemove(typeof(Texture), out _);
         Registries.ClearAll();
     }
 }

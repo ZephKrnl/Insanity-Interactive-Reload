@@ -20,8 +20,7 @@ public class CharacterLookDeserialiserTest
 
     public CharacterLookDeserialiserTest()
     {
-        if (Assets.TryGetPackage("base", out _))
-            MadnessInteractiveReloaded.PrepareResourceInitialise();
+        BaseAssetsFixture.EnsureRegistered();
         Registries.ClearAll();
 
         Registries.Armour.Body.Register(nameof(fake_body), fake_body);

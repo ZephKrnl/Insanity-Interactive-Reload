@@ -9,8 +9,7 @@ public class CharacterStatsDeserialiserTest : global::System.IDisposable
 {
     public CharacterStatsDeserialiserTest()
     {
-        if (Assets.TryGetPackage("base", out _))
-            MadnessInteractiveReloaded.PrepareResourceInitialise();
+        BaseAssetsFixture.EnsureRegistered();
         Registries.ClearAll();
     }
 

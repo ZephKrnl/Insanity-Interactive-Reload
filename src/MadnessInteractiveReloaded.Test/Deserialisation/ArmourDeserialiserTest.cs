@@ -12,8 +12,7 @@ public class ArmourDeserialiserTest : global::System.IDisposable
 {
     public ArmourDeserialiserTest()
     {
-        if (Assets.TryGetPackage("base", out _))
-            MadnessInteractiveReloaded.PrepareResourceInitialise();
+        BaseAssetsFixture.EnsureRegistered();
         Registries.ClearAll();
     }
 
