@@ -332,17 +332,32 @@ public static class Registries
             if (!package.HasAsset(asset))
                 continue;
 
-            var json = package.LoadNoCache<string>(asset);
-            var list = JsonConvert.DeserializeObject<AssetRef<StreamAudioData>[]>(json);
-            if (list != null)
-                for (int i = 0; i < list.Length; i++)
-                {
-                    var track = list[i];
-                    if (track.IsValid && track.Id.Exists && Assets.TryGetMetadata(track.Id, out var md))
-                        if (md.Path.EndsWith("ogg", StringComparison.InvariantCultureIgnoreCase))
-                            IncidentMusicSet.Add(track);
-                }
+            AddIncidentMusic(package.LoadNoCache<string>(asset), id.ToString());
         }
+    }
+
+    /// <summary>
+    /// Adds the tracks listed in an <c>incident_music.json</c> (a JSON array of asset paths) to <see cref="IncidentMusicSet"/>.
+    /// </summary>
+    /// <param name="source">Where the list came from (the package id), for the log.</param>
+    internal static void AddIncidentMusic(string json, string source)
+    {
+        // Read as tokens so a bad entry can be named in the warning: an AssetRef only keeps the hash of its path.
+        var list = JsonConvert.DeserializeObject<Newtonsoft.Json.Linq.JToken[]>(json);
+        if (list != null)
+            for (int i = 0; i < list.Length; i++)
+            {
+                var track = list[i].ToObject<AssetRef<StreamAudioData>>();
+                if (track.IsValid && track.Id.Exists && Assets.TryGetMetadata(track.Id, out var md))
+                {
+                    if (md.Path.EndsWith("ogg", StringComparison.InvariantCultureIgnoreCase))
+                        IncidentMusicSet.Add(track);
+                    else
+                        Logger.Warn($"Incident music entry \"{list[i]}\" in {source} is not an .ogg file. Skipping...");
+                }
+                else
+                    Logger.Warn($"Incident music entry \"{list[i]}\" in {source} does not exist. Skipping...");
+            }
     }
 
     public static void LoadFactions()
