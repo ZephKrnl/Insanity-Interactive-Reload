@@ -109,6 +109,59 @@ public class LegacyDataMigrationTests : IDisposable
         }
     }
 
+    private string Staging => Path.Combine(root, NewFolderName + LegacyDataMigration.StagingSuffix);
+
+    [Fact]
+    public void A_copy_that_failed_half_way_is_retried_on_the_next_launch()
+    {
+        WriteFile(Path.Combine(Legacy, "userdata", "a.txt"), "a");
+        var locked = Path.Combine(Legacy, "userdata", "settings.json");
+        WriteFile(locked, "legacy settings");
+        WriteFile(Path.Combine(Legacy, "userdata", "z.txt"), "z");
+
+        using (new FileStream(locked, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+            LegacyDataMigration.CopyLegacyDataIfNeeded(root, NewFolderName).Should().BeFalse();
+
+        Directory.Exists(Target).Should().BeFalse("a half-finished copy never lands in the real folder");
+
+        LegacyDataMigration.CopyLegacyDataIfNeeded(root, NewFolderName).Should().BeTrue("the unfinished copy is retried");
+
+        File.ReadAllText(Path.Combine(Target, "userdata", "a.txt")).Should().Be("a");
+        File.ReadAllText(Path.Combine(Target, "userdata", "settings.json")).Should().Be("legacy settings");
+        File.ReadAllText(Path.Combine(Target, "userdata", "z.txt")).Should().Be("z");
+        Directory.Exists(Staging).Should().BeFalse("the staging folder is renamed into place");
+    }
+
+    [Fact]
+    public void A_retry_after_a_session_ran_fills_in_what_was_left_behind_without_overwriting()
+    {
+        WriteFile(Path.Combine(Legacy, "userdata", "settings.json"), "legacy settings");
+        WriteFile(Path.Combine(Legacy, "userdata", "campaigns", "c.json"), "legacy progress");
+        WriteFile(Path.Combine(Staging, "userdata", "settings.json"), "legacy settings"); // the earlier attempt got this far
+        WriteFile(Path.Combine(Target, "userdata", "settings.json"), "changed in the session since");
+        WriteFile(Path.Combine(Target, "logs", "log.txt"), "session log");
+
+        LegacyDataMigration.CopyLegacyDataIfNeeded(root, NewFolderName).Should().BeTrue();
+
+        File.ReadAllText(Path.Combine(Target, "userdata", "settings.json")).Should().Be("changed in the session since");
+        File.ReadAllText(Path.Combine(Target, "userdata", "campaigns", "c.json")).Should().Be("legacy progress");
+        File.ReadAllText(Path.Combine(Target, "logs", "log.txt")).Should().Be("session log");
+        Directory.Exists(Staging).Should().BeFalse();
+        File.ReadAllText(Path.Combine(Legacy, "userdata", "settings.json")).Should().Be("legacy settings", "the legacy folder is never changed");
+    }
+
+    [Fact]
+    public void A_finished_copy_is_not_repeated()
+    {
+        WriteFile(Path.Combine(Legacy, "userdata", "settings.json"), "legacy");
+        LegacyDataMigration.CopyLegacyDataIfNeeded(root, NewFolderName).Should().BeTrue();
+        WriteFile(Path.Combine(Legacy, "userdata", "later.txt"), "written by MIR later");
+
+        LegacyDataMigration.CopyLegacyDataIfNeeded(root, NewFolderName).Should().BeFalse();
+
+        File.Exists(Path.Combine(Target, "userdata", "later.txt")).Should().BeFalse();
+    }
+
     [Fact]
     public void Redirect_maps_MIR_to_current_assembly()
     {

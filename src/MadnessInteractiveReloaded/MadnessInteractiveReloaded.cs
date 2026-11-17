@@ -217,7 +217,6 @@ void main()
         Directory.CreateDirectory(UserData.Paths.ExperimentDir);
         Directory.CreateDirectory(UserData.Paths.ExperimentCharacterPresets);
         Directory.CreateDirectory(UserData.Paths.CampaignStatsDir);
-        MigrateSaveData();
 
         ModLoader.AddSource(new LocalModCollectionSource(new DirectoryInfo(Path.Combine(Game.Main.AppDataDirectory, "mods/"))));
         ModLoader.AddSource(new LocalModCollectionSource(new DirectoryInfo("./mods")));
@@ -286,23 +285,6 @@ void main()
         catch (Exception e)
         {
             Logger.Error($"Saving at exit failed: {e}");
-        }
-    }
-
-    private void MigrateSaveData()
-    {
-        var oldFolder = new DirectoryInfo("userdata");
-
-        if (oldFolder.Exists)
-        {
-            Logger.Log($"Old user data folder found at \"{oldFolder.FullName}\"! Migrating to \"{UserData.Paths.BaseDir}\"");
-            if (Directory.Exists(UserData.Paths.BaseDir))
-            {
-                Logger.Warn($"Migration cancelled because the target folder already exists.");
-                return;
-            }
-            MadnessUtils.CopyDirectory(oldFolder.FullName, UserData.Paths.BaseDir, true);
-            oldFolder.Delete(true);
         }
     }
 }
