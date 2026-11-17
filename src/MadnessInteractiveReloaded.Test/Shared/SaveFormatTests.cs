@@ -14,9 +14,9 @@ public class SaveFormatTests
 {
     private sealed class Sample
     {
-        public int FormatVersion;
+        public int FormatVersion = -1; // set by the migration
         public string Name = "default";
-        public TimeSpan Time;
+        public TimeSpan Time = TimeSpan.Zero;
     }
 
     [Fact]
