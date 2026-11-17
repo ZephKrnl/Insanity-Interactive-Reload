@@ -108,7 +108,8 @@ public class Settings
     public void Apply(Game game)
     {
         game.Window.VSync = Video.Vsync;
-        game.UpdateRate = Video.FramerateCap;
+        game.UpdateRate = 0; // the engine limiter busy-waits, FrameLimiterLoopEvent sleeps instead
+        FrameLimiterLoopEvent.Cap = Video.FramerateCap;
         if (game.Window.WindowType != GetWindowType(Video.Window))
             game.Window.WindowType = GetWindowType(Video.Window);
 

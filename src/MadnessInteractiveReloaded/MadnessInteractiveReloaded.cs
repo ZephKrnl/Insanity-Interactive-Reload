@@ -133,17 +133,6 @@ void main()
     color = vertexColor * texture(mainTex, uv) * tint;
 }";
 
-        try
-        {
-            var p = Process.GetCurrentProcess();
-            p.PriorityBoostEnabled = true;
-            p.PriorityClass = ProcessPriorityClass.High;
-        }
-        catch (global::System.Exception e)
-        {
-            Console.Error.WriteLine($"Failed to set process priority: {e}");
-        }
-
         AudioRenderer? audioRenderer = null;
 
         try
@@ -171,6 +160,10 @@ void main()
         if (copiedLegacyData)
             Logger.Log($"Copied saves, settings and mods from %LOCALAPPDATA%\\{LegacyDataMigration.LegacyFolderName} to {Game.AppDataDirectory}");
 
+        // The sleeping frame limiter replaces the engine busy-wait (UpdateRate stays 0). It goes before the controller event so
+        // the pad is polled after the sleep, with the freshest input. The cap is set by Settings.Apply.
+        WinTimerResolution.Begin();
+        Game.AdditionalLoopEvents.Add(new FrameLimiterLoopEvent());
         // Runs before the scene systems every frame, so pad input is in place when they read it.
         Game.AdditionalLoopEvents.Add(new ControllerLoopEvent(new Win32CursorWarper()));
         Logger.Log(XInputNative.IsAvailable ? "XInput: available, controller support on" : "XInput: not available, controller support off");
@@ -178,7 +171,7 @@ void main()
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
 
         Game.Window.SetIcon(TextureLoader.FromFile("resources/textures/icon.png"));
-        Game.UpdateRate = 144;
+        Game.UpdateRate = 0; // engine limiter off, see FrameLimiterLoopEvent
         Game.FixedUpdateRate = 60;
         Game.Window.VSync = false;
         Game.AudioRenderer.Volume = 0.5f;
@@ -264,6 +257,7 @@ void main()
             // Nothing updates the pad once the loop has ended. Stop the motors now, before the saves below, which can take
             // a while or throw, and also when the loop itself throws.
             Gamepad.StopRumble();
+            WinTimerResolution.End();
         }
 
         // TODO handle error
