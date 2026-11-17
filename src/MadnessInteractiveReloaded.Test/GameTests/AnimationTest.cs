@@ -1,5 +1,6 @@
 ﻿using FluentAssertions;
 using System;
+using System.Numerics;
 using Walgelijk;
 using Walgelijk.AssetManager;
 using Xunit;
@@ -11,16 +12,7 @@ public class AnimationTest : global::System.IDisposable
 {
     public AnimationTest()
     {
-        try
-        {
-            Assets.RegisterPackage("resources/base.waa");
-        }
-        catch { }
-
-        if (Assets.TryGetPackage("base", out _))
-            MadnessInteractiveReloaded.PrepareResourceInitialise();
-        else
-            throw new System.Exception("Tests can't continue because the base assets cannot be found");
+        BaseAssetsFixture.EnsureRegistered();
         Registries.ClearAll();
     }
 
@@ -68,9 +60,20 @@ public class AnimationTest : global::System.IDisposable
         character.Animations.Should().HaveCount(2, "because both animations should still be playing");
         // verify that both animations are still playing
 
-        var mixedState = CharacterUtilities.CalculateMixedAnimation(character);
-        mixedState.BodyRotation.Should().BeApproximately(Utilities.Lerp(character.Animations[0].GetBodyRotation(), character.Animations[1].GetBodyRotation(), character.AnimationMixProgress), 0.05f);
-        (Utilities.Lerp(character.Animations[0].GetBodyPosition(), character.Animations[1].GetBodyPosition(), character.AnimationMixProgress) - mixedState.BodyPosition).LengthSquared().Should().BeLessThan(0.05f);
+        // Check the blend part-way through the mix, where a broken blend shows. Once the mix is over the result is just the
+        // last animation, whatever the blend does. The mix progress is set by hand, so the test doesn't depend on timing.
+        foreach (var progress in new[] { 0.25f, 0.5f, 0.75f })
+        {
+            character.AnimationMixProgress = progress;
+            var factor = Easings.Quad.InOut(progress); // what CalculateMixedAnimation eases the progress with
+            var from = character.Animations[0];
+            var to = character.Animations[1];
+
+            var mixedState = CharacterUtilities.CalculateMixedAnimation(character);
+            mixedState.BodyRotation.Should().BeApproximately(Utilities.LerpAngle(from.GetBodyRotation(), to.GetBodyRotation(), factor), 0.05f, $"at {progress:P0} of the mix");
+            (Vector2.Lerp(from.GetBodyPosition(), to.GetBodyPosition(), factor) - mixedState.BodyPosition).LengthSquared().Should().BeLessThan(0.05f, $"at {progress:P0} of the mix");
+        }
+
         // verify the mixed animation state
 
         game.Scene.Dispose();
