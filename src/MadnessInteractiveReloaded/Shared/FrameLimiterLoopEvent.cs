@@ -12,6 +12,12 @@ namespace MIR;
 public sealed class FrameLimiterLoopEvent : IGameLoopEvent
 {
     /// <summary>
+    /// The cap used until <c>Settings.Apply</c> sets the configured one (loading screen and anything before it). It matches the
+    /// 144 the engine limiter had at startup.
+    /// </summary>
+    public const int StartupCap = 144;
+
+    /// <summary>
     /// The frame cap in frames per second. Zero means uncapped.
     /// </summary>
     public static int Cap
@@ -23,7 +29,10 @@ public sealed class FrameLimiterLoopEvent : IGameLoopEvent
     private static readonly FrameLimiter Limiter = new(
         () => Stopwatch.GetTimestamp() / (double)Stopwatch.Frequency,
         ms => Thread.Sleep(System.TimeSpan.FromMilliseconds(ms)),
-        () => Thread.SpinWait(20));
+        () => Thread.SpinWait(20))
+    {
+        TargetFps = StartupCap
+    };
 
     public void Update(Game game, float dt) => Limiter.Wait();
 

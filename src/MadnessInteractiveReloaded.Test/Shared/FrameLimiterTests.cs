@@ -120,6 +120,14 @@ public class FrameLimiterTests
     }
 
     [Fact]
+    public void Loop_event_starts_at_the_startup_cap_of_144()
+    {
+        // Reads the static before anything in the test run sets it; nothing but Settings.Apply does.
+        FrameLimiterLoopEvent.StartupCap.Should().Be(144);
+        FrameLimiterLoopEvent.Cap.Should().Be(FrameLimiterLoopEvent.StartupCap);
+    }
+
+    [Fact]
     public void Uncapped_never_waits()
     {
         var f = new Fake(0);
