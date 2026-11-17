@@ -181,6 +181,63 @@ IDs (`BUG-nn`, `PERF-nn`, `BL-n`, feature IDs) are the ones used in `docs/TECHNI
 
 ---
 
+## 2026-11-17: Phase 1 docs committed; M1 approved
+
+**Done**
+- Committed the five Phase 1 docs (`807fd2e`). The tracker milestones were synced to the roadmap (M2 and M3 are split into a/b).
+- Zeph approved Milestone 1.
+
+---
+
+## 2026-11-17: WP-01 `fix/test-baseline` merged (`632df0a..3de6171`)
+
+**Done**
+- BUG-75: fixed the flaky `HandArmourDeserialiserTest` (it compares the resolved asset id now).
+- BUG-76: one shared `BaseAssetsFixture` replaces 9 copied guards.
+- BUG-77: `TestGameUtil.StepGame` mirrors the engine loop (routines, the fixed-step cap, loop-event `FixedUpdate`, interpolation).
+- BUG-78: the animation blend is asserted at 25, 50 and 75 percent of the mix.
+- A GitHub Actions build-and-test workflow.
+- BUG-97: a self-contained `win-x64` publish profile.
+
+**Verified**
+- 194/194 tests passed, 3 runs in a row (the baseline was 190/191).
+- The flaky test passes alone and inside the full run.
+- The blend assertions show the game's blending was already correct.
+- The self-contained publish produced `IIR.exe` with the bundled runtime and `base.waa` (829 MB).
+- Independent review: approved.
+
+**Not verified**
+- The CI job has never run on GitHub (nothing is pushed).
+- The publish has not been started on a PC without .NET.
+
+---
+
+## 2026-11-17: WP-02 `perf/sleeping-frame-limiter` merged (`0d4ed2e..d89ea62`)
+
+**Done**
+- BUG-01 / PERF-01: replaced the engine's busy-wait with a sleeping limiter (`FrameLimiterLoopEvent`), registered before the controller loop event. Uses `timeBeginPeriod(1)`, sleeps, then spins briefly.
+- Removed the High process priority.
+- The cap is 144 until settings load. The defaults are unchanged (300 fps cap, VSync off).
+
+**Verified**
+- 210/210 tests pass, including 16 new limiter tests. Independent review: approved.
+- **First measurement of PERF-01.** Release build, main menu, Zeph's saved settings (300 fps cap), average of 5 × 1 s samples:
+  - Before: **109% of one core** (9.1% of 12 logical cores), priority **High**.
+  - After: **44% of one core** (3.7% of 12 logical cores), priority **Normal**.
+  - No errors in the log after the change.
+
+**Not verified**
+- CPU in a level, and at caps of 144 and 60.
+- VSync on, and uncapped.
+- Whether aim and movement feel the same.
+
+These need a play session. The roadmap's manual checklist stays open for them.
+
+**Next**
+- WP-03 `fix/save-robustness`.
+
+---
+
 ## How to keep this log
 
 - **One entry per merged branch.** Also add one for each non-code event that matters: a letter sent, a reply received, a decision made, a commission signed, a release.
