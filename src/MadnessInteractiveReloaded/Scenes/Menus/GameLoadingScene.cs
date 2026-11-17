@@ -55,8 +55,10 @@ public static class GameLoadingScene
             Onion.ActiveSound = Sounds.UiPress;
 
             Settings.TryReadFromFile(UserData.Paths.Settings, ref UserData.Instances.Settings);
+            UserData.Loaded.Settings = true;
             UserData.Instances.Settings.Apply(Game.Main);
             UserData.Instances.UnlockedImprobabilityDisks = [..ImprobabilityDisks.LoadUnlocked()];
+            UserData.Loaded.ImprobabilityDisks = true;
         }, false),
     ];
 

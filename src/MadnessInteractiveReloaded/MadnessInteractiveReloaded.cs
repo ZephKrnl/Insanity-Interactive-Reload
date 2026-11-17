@@ -166,6 +166,8 @@ void main()
         Game.AdditionalLoopEvents.Add(new FrameLimiterLoopEvent());
         // Runs before the scene systems every frame, so pad input is in place when they read it.
         Game.AdditionalLoopEvents.Add(new ControllerLoopEvent(new Win32CursorWarper()));
+        // Makes the settings save Settings.Apply asks for, on the main thread, half a second after the last change.
+        Game.AdditionalLoopEvents.Add(new SettingsSaveLoopEvent());
         Logger.Log(XInputNative.IsAvailable ? "XInput: available, controller support on" : "XInput: not available, controller support off");
 
         CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
