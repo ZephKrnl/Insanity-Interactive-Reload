@@ -26,6 +26,55 @@ public class SaveAllTests : IDisposable
     }
 
     [Fact]
+    public void Exit_save_runs_once_so_a_crash_handler_save_keeps_the_earlier_backup()
+    {
+        File.WriteAllText(UserData.Paths.Settings, """{ "General": { "Language": "en-GB" } }""");
+        UserData.Loaded.Settings = true;
+        MadnessInteractiveReloaded.ResetExitSaveForTests();
+        try
+        {
+            UserData.Instances.Settings.General.Language = "nl-NL";
+            MadnessInteractiveReloaded.SaveAll(); // from the finally after the game loop
+            UserData.Instances.Settings.General.Language = "de-DE";
+            MadnessInteractiveReloaded.SaveAll(); // from the crash handler
+        }
+        finally
+        {
+            MadnessInteractiveReloaded.ResetExitSaveForTests();
+        }
+
+        var saved = new Settings();
+        Settings.TryReadFromFile(UserData.Paths.Settings, ref saved).Should().BeTrue();
+        saved.General.Language.Should().Be("nl-NL", "the second exit save does nothing");
+        var backup = new Settings();
+        Settings.TryReadFromFile(UserData.Paths.Settings + SaveFile.BackupSuffix, ref backup).Should().BeTrue();
+        backup.General.Language.Should().Be("en-GB", "the backup keeps the generation from before this session's exit");
+    }
+
+    [Fact]
+    public void Exit_saves_come_first_in_the_finally_after_the_game_loop()
+    {
+        var dir = new DirectoryInfo(AppContext.BaseDirectory);
+        while (dir != null && !File.Exists(Path.Combine(dir.FullName, "src", "MIR.sln")))
+            dir = dir.Parent;
+        dir.Should().NotBeNull();
+        var source = File.ReadAllText(Path.Combine(dir!.FullName, "src", "MadnessInteractiveReloaded", "MadnessInteractiveReloaded.cs"));
+
+        var start = source.IndexOf("Game.Start();", StringComparison.Ordinal);
+        var finallyAt = source.IndexOf("finally", start, StringComparison.Ordinal);
+        var end = source.IndexOf("Game.Scene.Dispose();", finallyAt, StringComparison.Ordinal);
+        start.Should().BePositive();
+        finallyAt.Should().BePositive();
+        end.Should().BePositive();
+        var block = source[finallyAt..end];
+
+        var save = block.IndexOf("SaveAll();", StringComparison.Ordinal);
+        save.Should().BePositive("the finally saves");
+        save.Should().BeLessThan(block.IndexOf("Gamepad.StopRumble();", StringComparison.Ordinal), "so a throw there cannot skip the save");
+        save.Should().BeLessThan(block.IndexOf("WinTimerResolution.End();", StringComparison.Ordinal), "so a throw there cannot skip the save");
+    }
+
+    [Fact]
     public void SaveAll_writes_nothing_that_was_not_loaded()
     {
         string[] files = [UserData.Paths.Settings, UserData.Paths.PlayerLookFile, UserData.Paths.UnlockedImprobabilityDisk, UserData.Paths.ArenaModeSaves];

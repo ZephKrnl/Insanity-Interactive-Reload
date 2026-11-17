@@ -65,7 +65,7 @@ public static class Program
                 return;
 
             // Save first, in case writing the report fails too. Each save is on its own and only what was loaded is
-            // written; a failing save must not stop the report.
+            // written; a failing save must not stop the report. It does nothing when the finally after the loop already saved.
             try
             {
                 MadnessInteractiveReloaded.SaveAll();

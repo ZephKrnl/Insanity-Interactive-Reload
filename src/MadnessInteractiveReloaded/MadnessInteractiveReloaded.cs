@@ -7,6 +7,7 @@ using System.IO;
 using System.Linq;
 using System.Numerics;
 using System.Reflection;
+using System.Threading;
 using Walgelijk;
 using Walgelijk.AssetManager;
 using Walgelijk.AssetManager.Deserialisers;
@@ -255,14 +256,14 @@ void main()
         }
         finally
         {
-            // Nothing updates the pad once the loop has ended. Stop the motors now, before the saves below, which can take
-            // a while or throw, and also when the loop itself throws.
+            // Save first, and here rather than after the try, so progress, the look and settings are also saved when the loop
+            // throws (BUG-05), and a throw in the clean-up below cannot skip it. SaveAll never throws, so it cannot hide the
+            // loop's exception. arena.json is no longer written (BUG-06).
+            SaveAll();
+
+            // Nothing updates the pad once the loop has ended. Stop the motors, also when the loop itself throws.
             Gamepad.StopRumble();
             WinTimerResolution.End();
-
-            // Save here, not after the try, so progress, the look and settings are also saved when the loop throws (BUG-05).
-            // SaveAll never throws, so it cannot hide the loop's exception. arena.json is no longer written (BUG-06).
-            SaveAll();
         }
 
         // TODO invoke mod unload thing i dont remember
@@ -272,12 +273,24 @@ void main()
         Assets.ClearRegistry();
     }
 
+    private static int exitSaveDone;
+
     /// <summary>
     /// Saves everything that is saved at exit (see <see cref="UserData.SaveAll"/>): each save on its own, errors logged, never
     /// throws. Called when the game loop ends, normally or not, and by the crash handler.
+    /// <para>
+    /// It runs once per exit: after a crash in the loop, the <c>finally</c> has already saved, and saving again from the crash
+    /// handler would replace every <c>.bak</c> (the state before this exit) with the state at the crash.
+    /// </para>
     /// </summary>
     public static void SaveAll()
     {
+        if (Interlocked.Exchange(ref exitSaveDone, 1) == 1)
+        {
+            Logger.Log("Exit save already done");
+            return;
+        }
+
         try
         {
             UserData.SaveAll();
@@ -287,4 +300,9 @@ void main()
             Logger.Error($"Saving at exit failed: {e}");
         }
     }
+
+    /// <summary>
+    /// Lets the next <see cref="SaveAll"/> run again. Only for tests, which call it more than once per process.
+    /// </summary>
+    internal static void ResetExitSaveForTests() => Interlocked.Exchange(ref exitSaveDone, 0);
 }
