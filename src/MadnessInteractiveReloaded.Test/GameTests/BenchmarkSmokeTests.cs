@@ -50,7 +50,8 @@ public class BenchmarkSmokeTests : IDisposable
 
         // LoadFactions clears FactionRelationships, which only the faction deserialiser fills, and then gets the factions from
         // the asset cache. So a second call in one process (another test) leaves every faction friendly with every other and
-        // the AI never pick a target. Deserialising them again, uncached, puts the relationships back.
+        // the AI never pick a target. Deserialising them again, uncached, puts the relationships back. This is BUG-112 in
+        // docs/TECHNICAL_AUDIT.md; remove this workaround when it is fixed.
         Registries.LoadFactions();
         foreach (var asset in Walgelijk.AssetManager.Assets.EnumerateFolder("data/factions", SearchOption.AllDirectories))
             Walgelijk.AssetManager.Assets.LoadNoCache<Faction>(asset);
