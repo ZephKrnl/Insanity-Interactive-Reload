@@ -202,4 +202,76 @@ public class BenchmarkSmokeTests : IDisposable
             game.Stop();
         }
     }
+    [Fact]
+    public void StartingFromExperimentModeKeepsItsAutoSpawnSetting()
+    {
+        // Experiment mode saves AutoSpawn when its scene is deactivated and applies it again when it is activated. Setting
+        // game.Scene to the benchmark deactivates the experiment scene after BenchmarkScene.Create has run, so the benchmark
+        // must not change the setting before then.
+        var game = TestGameUtil.Create(new RecordingLogger());
+        PrepareRegistries();
+        var persistedBefore = ExperimentModePersistentData.AutoSpawn;
+        try
+        {
+            var experiment = game.Scene = ExperimentScene.Create(game, Registries.Levels.Get("exp_2").Level.Value, SceneCacheSettings.NoCache);
+            TestGameUtil.StepGame(TimeSpan.FromSeconds(1 / 60f), game);
+            AiCharacterSystem.AutoSpawn = true; // the player turned auto-spawn on in experiment mode
+
+            var benchmark = game.Scene = BenchmarkScene.Create(game, new BenchmarkOptions { AiCount = 3, Seconds = 60, OutputDirectory = outputDir });
+            ExperimentModePersistentData.AutoSpawn.Should().BeTrue("because experiment mode saved the player's setting, not the benchmark's");
+            AiCharacterSystem.AutoSpawn.Should().BeFalse("because the benchmark spawns its own AI");
+            ImprobabilityDisks.IsEnabled("god").Should().BeTrue();
+            experiment.Dispose();
+
+            TestGameUtil.StepGame(TimeSpan.FromSeconds(0.25), game);
+            game.Scene = new Scene(game);
+            benchmark.Dispose();
+
+            AiCharacterSystem.AutoSpawn.Should().BeTrue("because leaving the benchmark gives back the setting from before it");
+            ImprobabilityDisks.IsEnabled("god").Should().BeFalse();
+        }
+        finally
+        {
+            AiCharacterSystem.AutoSpawn = false;
+            ExperimentModePersistentData.AutoSpawn = persistedBefore;
+            game.Scene?.Dispose();
+            game.Stop();
+        }
+    }
+
+    [Fact]
+    public void StartingASecondBenchmarkMidRunKeepsTheOriginalSettings()
+    {
+        var game = TestGameUtil.Create(new RecordingLogger());
+        PrepareRegistries();
+
+        AiCharacterSystem.AutoSpawn = true;
+        game.DevelopmentMode = true;
+        try
+        {
+            var first = game.Scene = BenchmarkScene.Create(game, new BenchmarkOptions { AiCount = 3, Seconds = 60, OutputDirectory = outputDir });
+            TestGameUtil.StepGame(TimeSpan.FromSeconds(0.25), game);
+
+            // "benchmark" typed in the console during a run
+            var second = game.Scene = BenchmarkScene.Create(game, new BenchmarkOptions { AiCount = 3, Seconds = 60, OutputDirectory = outputDir });
+            first.Dispose();
+            TestGameUtil.StepGame(TimeSpan.FromSeconds(0.25), game);
+            AiCharacterSystem.AutoSpawn.Should().BeFalse();
+            ImprobabilityDisks.IsEnabled("god").Should().BeTrue();
+
+            game.Scene = new Scene(game);
+            second.Dispose();
+
+            AiCharacterSystem.AutoSpawn.Should().BeTrue("because the second run must restore the settings from before the first");
+            game.DevelopmentMode.Should().BeTrue();
+            ImprobabilityDisks.IsEnabled("god").Should().BeFalse();
+        }
+        finally
+        {
+            AiCharacterSystem.AutoSpawn = false;
+            game.DevelopmentMode = false;
+            game.Scene?.Dispose();
+            game.Stop();
+        }
+    }
 }

@@ -10,8 +10,11 @@ using Walgelijk;
 public static class BenchmarkScene
 {
     /// <summary>
-    /// The global settings the benchmark changes, taken before it changes them. <see cref="Restore"/> puts them back; it runs
-    /// when the run ends and when the scene is left, and only does anything the first time.
+    /// The global settings the benchmark changes, taken before it changes them. <see cref="BenchmarkSystem"/> takes it and calls
+    /// <see cref="ApplyBenchmarkSettings"/> when its scene is activated, which is after the previous scene was deactivated:
+    /// experiment mode saves AutoSpawn on deactivation, and a benchmark started during a benchmark must see the settings
+    /// from before the first one. <see cref="Restore"/> puts them back; it runs when the run ends and when the scene is left,
+    /// and only does anything the first time.
     /// </summary>
     public sealed class GlobalState
     {
@@ -35,6 +38,20 @@ public static class BenchmarkScene
 
         public bool IsRestored => restored;
 
+        /// <summary>The settings the benchmark runs with. The frame cap and VSync are left alone: they are what it measures
+        /// under, and go into the CSV.</summary>
+        public static void ApplyBenchmarkSettings(Game game)
+        {
+            game.State.Time.TimeScale = 1;
+            AiCharacterSystem.DisableAI = false;
+            AiCharacterSystem.AutoSpawn = false; // the benchmark spawns its own AI, there is no EnemySpawningSystem
+            game.DevelopmentMode = false;
+
+            // "god" makes the player ignore bullets and melee hits; the player's Invincible flag covers the rest. Player only.
+            if (ImprobabilityDisks.All.TryGetValue("god", out var god))
+                god.Enabled = true;
+        }
+
         public void Restore(Game game)
         {
             if (restored)
@@ -56,47 +73,25 @@ public static class BenchmarkScene
         var entry = Registries.Levels.Get(options.Level);
         var level = entry.Level.Value;
 
-        var state = new GlobalState(game);
+        // No global setting is changed here: this runs before game.Scene deactivates the current scene (see GlobalState).
+        var scene = SceneUtils.PrepareGameScene(game, GameMode.Experiment, true, level);
+        scene.ScenePersistence = ScenePersistence.Dispose;
 
-        // From here on every change to a global setting is undone by GlobalState.Restore.
-        game.State.Time.TimeScale = 1;
-        AiCharacterSystem.DisableAI = false;
-        AiCharacterSystem.AutoSpawn = false; // the benchmark spawns its own AI, there is no EnemySpawningSystem
-        game.DevelopmentMode = false;
-        // The frame cap and VSync are left as they are: they are what the benchmark measures under, and go into the CSV.
+        if (!MadnessUtils.FindPlayer(scene, out var player, out var character))
+            throw new Exception($"No player in the benchmark level \"{options.Level}\"");
 
-        // "god" makes the player ignore bullets and melee hits; the flag below covers the rest. Player only.
-        if (ImprobabilityDisks.All.TryGetValue("god", out var god))
-            god.Enabled = true;
+        player.RespondToUserInput = false;
 
-        Scene scene;
-        try
-        {
-            scene = SceneUtils.PrepareGameScene(game, GameMode.Experiment, true, level);
-            scene.ScenePersistence = ScenePersistence.Dispose;
+        // In the middle of the room, so the AI come from both sides instead of queueing up in one line of fire.
+        var x = level.LevelBounds.MinX + level.LevelBounds.Width / 2;
+        var floor = new Vector2(x, level.GetFloorLevelAt(x) + CharacterConstants.GetFloorOffset(character.Positioning.Scale));
+        character.Positioning.GlobalCenter = floor;
+        character.Positioning.GlobalTarget = floor with { Y = 0 };
+        character.Flags |= CharacterFlags.Invincible;
+        if (Registries.Weapons.TryGet("aug", out var aug))
+            character.EquipWeapon(scene, Prefabs.CreateWeapon(scene, default, aug));
 
-            if (!MadnessUtils.FindPlayer(scene, out var player, out var character))
-                throw new Exception($"No player in the benchmark level \"{options.Level}\"");
-
-            player.RespondToUserInput = false;
-
-            // In the middle of the room, so the AI come from both sides instead of queueing up in one line of fire.
-            var x = level.LevelBounds.MinX + level.LevelBounds.Width / 2;
-            var floor = new Vector2(x, level.GetFloorLevelAt(x) + CharacterConstants.GetFloorOffset(character.Positioning.Scale));
-            character.Positioning.GlobalCenter = floor;
-            character.Positioning.GlobalTarget = floor with { Y = 0 };
-            character.Flags |= CharacterFlags.Invincible;
-            if (Registries.Weapons.TryGet("aug", out var aug))
-                character.EquipWeapon(scene, Prefabs.CreateWeapon(scene, default, aug));
-
-            scene.AddSystem(new BenchmarkSystem(options, state));
-        }
-        catch
-        {
-            state.Restore(game);
-            throw;
-        }
-
+        scene.AddSystem(new BenchmarkSystem(options));
         return scene;
     }
 }

@@ -40,7 +40,8 @@ public class BenchmarkSystem : Walgelijk.System
     /// <summary>Invoked once, when the run is finished and the CSV written (or not).</summary>
     public event Action<BenchmarkSystem>? Finished;
 
-    private readonly BenchmarkScene.GlobalState restoreState;
+    /// <summary>Taken when the scene is activated; null before that.</summary>
+    private BenchmarkScene.GlobalState? restoreState;
     private readonly BenchmarkFrameTimes frameTimes = new();
     private readonly List<CharacterComponent> liveAi = [];
     private WeaponInstructions[] firearms = [];
@@ -53,10 +54,19 @@ public class BenchmarkSystem : Walgelijk.System
     private int peakEntities, peakRagdolls;
     private readonly HashSet<Entity> ragdollsSeen = [];
 
-    public BenchmarkSystem(BenchmarkOptions options, BenchmarkScene.GlobalState restoreState)
+    public BenchmarkSystem(BenchmarkOptions options)
     {
         Options = options;
-        this.restoreState = restoreState;
+    }
+
+    public override void OnActivate()
+    {
+        // Here and not in BenchmarkScene.Create: by now the previous scene has been deactivated and has saved or restored
+        // its own settings, so this snapshot is what the game goes back to.
+        if (Phase == RunPhase.Finished || restoreState is { IsRestored: false })
+            return;
+        restoreState = new BenchmarkScene.GlobalState(Game);
+        BenchmarkScene.GlobalState.ApplyBenchmarkSettings(Game);
     }
 
     public override void Update()
@@ -112,7 +122,7 @@ public class BenchmarkSystem : Walgelijk.System
     public override void OnDeactivate()
     {
         // Leaving the scene early (menu, console, crash handler) must not leave benchmark settings behind.
-        restoreState.Restore(Game);
+        restoreState?.Restore(Game);
     }
 
     private void BeginRecording()
@@ -184,7 +194,7 @@ public class BenchmarkSystem : Walgelijk.System
             ai.Delete(Scene);
         }
         liveAi.Clear();
-        restoreState.Restore(Game);
+        restoreState?.Restore(Game);
 
         try
         {
