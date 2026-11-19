@@ -48,12 +48,7 @@ public class BenchmarkSmokeTests : IDisposable
         // test player has an empty look, its head and body sit at its feet, and the AI aim into the floor and hardly shoot.
         Registries.Looks.Get("grunt").CopyTo(UserData.Instances.PlayerLook);
 
-        // LoadFactions clears FactionRelationships, which only the faction deserialiser fills, and then gets the factions from
-        // the asset cache. So a second call in one process (another test) leaves every faction friendly with every other and
-        // the AI never pick a target. Deserialising them again, uncached, puts the relationships back.
         Registries.LoadFactions();
-        foreach (var asset in Walgelijk.AssetManager.Assets.EnumerateFolder("data/factions", SearchOption.AllDirectories))
-            Walgelijk.AssetManager.Assets.LoadNoCache<Faction>(asset);
         Registries.Factions.Get("aahw").IsEnemiesWith(Registries.Factions.Get("player")).Should().BeTrue("because the benchmark AI must attack the player");
     }
 

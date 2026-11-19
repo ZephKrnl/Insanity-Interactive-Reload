@@ -18,6 +18,18 @@ public class Faction
     public readonly string Id;
     public readonly uint CollisionLayer;
 
+    /// <summary>
+    /// The enemies this faction declares in its data file. <see cref="RegisterDeclaredRelationships"/> puts them into
+    /// <see cref="FactionRelationships"/>.
+    /// </summary>
+    public readonly IReadOnlyList<string> DeclaredEnemies;
+
+    /// <summary>
+    /// The allies this faction declares in its data file. <see cref="RegisterDeclaredRelationships"/> puts them into
+    /// <see cref="FactionRelationships"/>.
+    /// </summary>
+    public readonly IReadOnlyList<string> DeclaredAllies;
+
     public uint AttackHitLayerComposite
     {
         get
@@ -35,13 +47,29 @@ public class Faction
 
     private static uint lastAssignedLayer = CollisionLayers.CharacterStart;
 
-    public Faction(string id, string name)
+    public Faction(string id, string name, IReadOnlyList<string>? declaredEnemies = null, IReadOnlyList<string>? declaredAllies = null)
     {
         Id = id;
         Name = name;
+        DeclaredEnemies = declaredEnemies ?? [];
+        DeclaredAllies = declaredAllies ?? [];
 
         lastAssignedLayer = CollisionLayer = lastAssignedLayer << 1;
         Logger.Debug($"Assigned layer {CollisionLayer:b} to faction '{name}'");
+    }
+
+    /// <summary>
+    /// Adds <see cref="DeclaredEnemies"/> and <see cref="DeclaredAllies"/> to <see cref="FactionRelationships"/>.
+    /// <see cref="Registries.LoadFactions"/> calls this for every faction after clearing the relationships, because the asset
+    /// cache hands back the same <see cref="Faction"/> objects on a second load and the deserialiser does not run again.
+    /// </summary>
+    public void RegisterDeclaredRelationships()
+    {
+        foreach (var other in DeclaredEnemies)
+            FactionRelationships.Enemies.Ensure(Id).Add(other);
+
+        foreach (var other in DeclaredAllies)
+            FactionRelationships.Allies.Ensure(Id).Add(other);
     }
 
     public void AddAlly(Faction f)
@@ -111,15 +139,9 @@ public class Faction
             using var input = stream();
             using var json = new StreamReader(input, leaveOpen: false);
             var v = JsonConvert.DeserializeObject<IntermediateFaction>(json.ReadToEnd());
-            var faction = new Faction(Path.GetFileNameWithoutExtension(assetMetadata.Path), v.Name);
-
-            foreach (var other in v.Enemies ?? [])
-                FactionRelationships.Enemies.Ensure(faction.Id).Add(other);
-
-            foreach (var other in v.Allies ?? [])
-                FactionRelationships.Allies.Ensure(faction.Id).Add(other);
-
-            return faction;
+            // The relationships are kept on the faction and registered by Registries.LoadFactions, not here: a cached
+            // faction is never deserialised again, so relationships filled here would be lost after the next clear.
+            return new Faction(Path.GetFileNameWithoutExtension(assetMetadata.Path), v.Name, v.Enemies, v.Allies);
         }
 
         public bool IsCandidate(in AssetMetadata assetMetadata)

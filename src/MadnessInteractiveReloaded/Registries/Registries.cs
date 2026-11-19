@@ -369,8 +369,11 @@ public static class Registries
         {
             try
             {
+                // Cached on purpose: a new Faction takes the next collision layer bit, so loading uncached on every call
+                // would use up the layers. The relationships are registered again below instead.
                 var faction = Assets.Load<Faction>(asset).Value;
                 Factions.Register(faction.Id, faction);
+                faction.RegisterDeclaredRelationships();
             }
             catch (Exception e)
             {
