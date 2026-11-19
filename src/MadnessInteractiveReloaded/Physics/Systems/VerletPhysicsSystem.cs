@@ -77,13 +77,17 @@ public class VerletPhysicsSystem : Walgelijk.System
 
     /// <summary>
     /// Copies every <typeparamref name="T"/> in the scene into <paramref name="buffer"/> and returns how many there are. When
-    /// the buffer comes back full there may have been more, so it doubles and copies again until they all fit.
+    /// the buffer comes back full there may have been more, so it doubles and copies again until they all fit. An empty buffer
+    /// is given room first: it always reads as full, and doubling zero would loop forever.
     /// </summary>
     internal static int CopyAllComponents<T>(Scene scene, ref T[] buffer) where T : Component
     {
+        if (buffer.Length == 0)
+            buffer = new T[4];
+
         int count;
         while ((count = scene.CopyAllComponentsOfType(buffer)) >= buffer.Length)
-            Array.Resize(ref buffer, buffer.Length * 2);
+            Array.Resize(ref buffer, Math.Max(4, buffer.Length * 2));
         return count;
     }
 

@@ -55,6 +55,32 @@ public class VerletBufferTests : IDisposable
         }
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(3)]
+    public void CopyAllComponentsGrowsAnEmptyBuffer(int components)
+    {
+        var game = TestGameUtil.Create(NullLogger.Instance);
+        var scene = game.Scene = new Scene(game);
+        try
+        {
+            for (int i = 0; i < components; i++)
+                scene.AttachComponent(scene.CreateEntity(), new TransformComponent());
+
+            // An empty buffer is always "full", and doubling zero stays zero: this used to loop forever.
+            var buffer = Array.Empty<TransformComponent>();
+            var copy = global::System.Threading.Tasks.Task.Run(() => VerletPhysicsSystem.CopyAllComponents(scene, ref buffer));
+            copy.Wait(TimeSpan.FromSeconds(5)).Should().BeTrue("because copying into an empty buffer must finish");
+            copy.Result.Should().Be(components);
+            buffer.Length.Should().BeGreaterThan(components);
+        }
+        finally
+        {
+            scene.Dispose();
+            game.Stop();
+        }
+    }
+
     [Fact]
     public void FortySimultaneousRagdollsAreAllSimulatedAndSolved()
     {
