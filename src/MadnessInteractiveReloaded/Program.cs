@@ -21,7 +21,10 @@ public static class Program
     /// <param name="output">The package to write (<c>pack</c>), or the folder for the CSV (<c>benchmark</c>).</param>
     /// <param name="ai">The number of AI in the benchmark (<c>benchmark</c>).</param>
     /// <param name="seconds">How long the benchmark measures, in seconds (<c>benchmark</c>).</param>
-    private static void Main(string? mode = null, string? input = null, string? output = null,
+    /// <returns>0, or for <c>--mode benchmark</c>: 2 for bad arguments, 1 when no CSV was written (see
+    /// <see cref="MadnessInteractiveReloaded.ExitCode"/>). The argument binder (DragonFruit) makes the process exit code the
+    /// value <c>Main</c> returns, so <see cref="Environment.ExitCode"/> set anywhere would be overwritten.</returns>
+    private static int Main(string? mode = null, string? input = null, string? output = null,
         int ai = BenchmarkOptions.DefaultAi, int seconds = BenchmarkOptions.DefaultSeconds)
     {
         // First, before anything can ask for the game assembly by its old name (mods, levels, cutscenes).
@@ -31,7 +34,7 @@ public static class Program
         if (!File.Exists(me))
         {
             Console.Error.WriteLine("Game not found in current directory. Please start the game from the game root directory, or use a shortcut.");
-            return;
+            return 0;
         }
 
         switch (mode)
@@ -43,7 +46,7 @@ public static class Program
                     if (input == null || !Directory.Exists(input))
                     {
                         Console.Error.WriteLine("{0} is not a directory, so it cannot be packed. Terminating.", input);
-                        return;
+                        return 0;
                     }
 
                     var dir = new DirectoryInfo(input);
@@ -52,14 +55,14 @@ public static class Program
                     AssetPackageUtils.Build("base", dir, o, new AssetPreprocessor());
 
                     Console.WriteLine("... done :)");
-                    return;
+                    return 0;
                 }
             case "benchmark":
                 {
                     if (!BenchmarkOptions.TryCreate(ai, seconds, out var options, out var error))
                     {
                         Console.Error.WriteLine(error);
-                        return;
+                        return 2; // bad arguments
                     }
 
                     MadnessInteractiveReloaded.StartupBenchmark = options! with { ExitWhenDone = true, OutputDirectory = output };
@@ -73,15 +76,17 @@ public static class Program
 #if DEBUG
         Harmony.DEBUG = true;
         var _ = new MadnessInteractiveReloaded();
+        return MadnessInteractiveReloaded.ExitCode;
 #else
         try
         {
             var _ = new MadnessInteractiveReloaded();
+            return MadnessInteractiveReloaded.ExitCode;
         }
         catch (System.Exception e)
         {
             if (MadnessInteractiveReloaded.Game == null)
-                return;
+                return MadnessInteractiveReloaded.ExitCode;
 
             // Save first, in case writing the report fails too. Each save is on its own and only what was loaded is
             // written; a failing save must not stop the report. It does nothing when the finally after the loop already saved.
@@ -168,7 +173,7 @@ public static class Program
 
             MadnessUtils.OpenExplorer($"\"{presentationPath}\"");
 
-            return;
+            return MadnessInteractiveReloaded.ExitCode;
         }
     }
 

@@ -287,6 +287,14 @@ void main()
     /// </summary>
     public static BenchmarkOptions? StartupBenchmark;
 
+    private static bool startupBenchmarkWritten;
+
+    /// <summary>
+    /// The process exit code once the game has stopped: 0, except for <c>--mode benchmark</c> when the benchmark did not write
+    /// its CSV (it could not start, the write failed, the game crashed or was closed first): then 1.
+    /// </summary>
+    public static int ExitCode => StartupBenchmark != null && !startupBenchmarkWritten ? 1 : 0;
+
     private static void StartBenchmark(Game game, BenchmarkOptions options)
     {
         try
@@ -294,6 +302,7 @@ void main()
             var scene = game.Scene = BenchmarkScene.Create(game, options);
             scene.GetSystem<BenchmarkSystem>().Finished += b =>
             {
+                startupBenchmarkWritten = b.CsvPath != null;
                 if (b.CsvPath != null)
                     Console.WriteLine("Benchmark written to " + b.CsvPath);
                 else
