@@ -274,4 +274,43 @@ public class BenchmarkSmokeTests : IDisposable
             game.Stop();
         }
     }
+    [Fact]
+    public void TheFrameAfterSetupIsNotMeasured()
+    {
+        // The AI are spawned in the setup frame, and the time that takes shows up in the delta time of the next frame.
+        var game = TestGameUtil.Create(new RecordingLogger());
+        PrepareRegistries();
+        try
+        {
+            var scene = game.Scene = BenchmarkScene.Create(game, new BenchmarkOptions { AiCount = 3, Seconds = 60, OutputDirectory = outputDir });
+            var system = scene.GetSystem<BenchmarkSystem>();
+            var time = game.State.Time;
+
+            void frame(float dt)
+            {
+                time.DeltaTimeUnscaled = time.DeltaTime = dt;
+                system.Update();
+            }
+
+            frame(1 / 60f); // setup: spawns the AI
+            system.Phase.Should().Be(BenchmarkSystem.RunPhase.Setup, "because the frame after setup is not measured either");
+            frame(0.5f); // the setup spike
+            system.Phase.Should().Be(BenchmarkSystem.RunPhase.Recording);
+            system.RecordedFrames.Should().Be(0);
+
+            frame(1 / 60f);
+            frame(1 / 60f);
+            system.RecordedFrames.Should().Be(2);
+            system.RecordedMaxFrameSeconds.Should().BeApproximately(1 / 60d, 1e-6, "because the spike was not recorded");
+            system.ElapsedSeconds.Should().BeApproximately(2 / 60d, 1e-6);
+
+            game.Scene = new Scene(game);
+            scene.Dispose();
+        }
+        finally
+        {
+            game.Scene?.Dispose();
+            game.Stop();
+        }
+    }
 }

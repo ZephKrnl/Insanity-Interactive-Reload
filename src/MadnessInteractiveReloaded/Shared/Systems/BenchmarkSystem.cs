@@ -18,7 +18,8 @@ public class BenchmarkSystem : Walgelijk.System
 {
     public enum RunPhase
     {
-        /// <summary>The first frame: the AI are spawned, nothing is measured.</summary>
+        /// <summary>The first two frames: the AI are spawned in the first, and the second, whose delta time holds the cost of
+        /// that, is skipped too. Nothing is measured.</summary>
         Setup,
         Recording,
         Finished
@@ -34,6 +35,12 @@ public class BenchmarkSystem : Walgelijk.System
     /// <summary>The CSV written for <see cref="Report"/>, or null when writing failed.</summary>
     public string? CsvPath { get; private set; }
 
+    /// <summary>Frames measured so far.</summary>
+    public int RecordedFrames => frameTimes.Count;
+
+    /// <summary>The longest frame measured so far, in seconds.</summary>
+    public double RecordedMaxFrameSeconds => frameTimes.Max;
+
     /// <summary>Seconds measured so far (unscaled).</summary>
     public double ElapsedSeconds { get; private set; }
 
@@ -47,6 +54,7 @@ public class BenchmarkSystem : Walgelijk.System
     private WeaponInstructions[] firearms = [];
     private WeaponInstructions[] meleeWeapons = [];
     private int spawnCounter;
+    private bool spawnedInitialAi;
 
     private float killTimer, massKillTimer;
     private int gc0, gc1, gc2;
@@ -78,12 +86,17 @@ public class BenchmarkSystem : Walgelijk.System
 
         if (Phase == RunPhase.Setup)
         {
-            var weapons = Registries.Weapons.GetAllValues().ToArray();
-            firearms = weapons.Where(static w => w.WeaponData.WeaponType == WeaponType.Firearm).ToArray();
-            meleeWeapons = weapons.Where(static w => w.WeaponData.WeaponType == WeaponType.Melee).ToArray();
+            if (!spawnedInitialAi)
+            {
+                var weapons = Registries.Weapons.GetAllValues().ToArray();
+                firearms = weapons.Where(static w => w.WeaponData.WeaponType == WeaponType.Firearm).ToArray();
+                meleeWeapons = weapons.Where(static w => w.WeaponData.WeaponType == WeaponType.Melee).ToArray();
 
-            SpawnMissing(int.MaxValue);
-            BeginRecording();
+                SpawnMissing(int.MaxValue);
+                spawnedInitialAi = true;
+            }
+            else
+                BeginRecording(); // the setup spike is in this frame's delta time; measuring starts with the next one
             return;
         }
 
