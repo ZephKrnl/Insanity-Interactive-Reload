@@ -134,9 +134,14 @@ public class BenchmarkSmokeTests : IDisposable
                 maxEntities.Should().BeLessThan(entityBound);
                 report.FinalEntities.Should().BeLessThan(entityBound);
 
-                // A ragdoll is deleted once it sleeps for 2 s or lives 10 s (RagdollLifetimeSystem), so they don't all pile up.
-                report.PeakRagdolls.Should().BeLessThan(report.RagdollsSpawned, "because some ragdolls are cleaned up during the run");
+                // Clean-up is checked against RagdollLifetimeSystem's rule (deleted after sleeping 2 s or living 10 s), not by
+                // hoping some ragdoll happened to fall asleep in time: every live ragdoll is one that gets deleted, and none has
+                // outlived the rule. Below, all of them are gone once the rule has had time to apply.
+                report.PeakRagdolls.Should().BeLessThanOrEqualTo(report.RagdollsSpawned);
                 maxRagdolls.Should().BeLessThanOrEqualTo(report.RagdollsSpawned);
+                var ragdolls = scene.GetAllComponentsOfType<RagdollComponent>().ToArray();
+                ragdolls.Should().OnlyContain(r => r.ShouldDelete, "because AI ragdolls are deleted on their own");
+                ragdolls.Should().OnlyContain(r => r.Lifetime <= 10 && r.SleepingTime <= 2 + 2 / 60f, "because older ragdolls are deleted");
 
                 system.CsvPath.Should().NotBeNull();
                 File.Exists(system.CsvPath).Should().BeTrue();
@@ -154,6 +159,10 @@ public class BenchmarkSmokeTests : IDisposable
 
                 logger.Errors.Should().BeEmpty();
             }
+
+            // The run is over, its AI are gone and nothing dies any more: within the 10 s lifetime every ragdoll is deleted.
+            TestGameUtil.StepGame(TimeSpan.FromSeconds(10.5), game);
+            scene.GetAllComponentsOfType<RagdollComponent>().Should().BeEmpty("because every ragdoll is deleted within 10 s");
 
             output.WriteLine($"AI shots/min {system.Report!.ShotsPerMinute:0.0}, melee/min {system.Report.MeleeAttacksPerMinute:0.0}, " +
                 $"peak entities {system.Report.PeakEntities}, final {system.Report.FinalEntities}, peak ragdolls {system.Report.PeakRagdolls}");
