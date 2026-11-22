@@ -75,9 +75,32 @@ public sealed class BenchmarkFrameTimes
     private double sum;
     private double max;
 
+    /// <summary>Frames per second assumed for an uncapped run when sizing the buffer. A run that goes faster still works, it just grows the list.</summary>
+    public const int UncappedFrameRateCeiling = 1000;
+
     public int Count => samples.Count;
+    /// <summary>How many samples fit before the list has to allocate a bigger array.</summary>
+    public int Capacity => samples.Capacity;
     public double Mean => samples.Count == 0 ? 0 : sum / samples.Count;
     public double Max => max;
+
+    /// <summary>The number of samples to make room for in a run of <paramref name="seconds"/> at <paramref name="frameCap"/> frames per
+    /// second (zero or less: no cap), with a quarter and a little extra on top.</summary>
+    public static int ExpectedFrames(int seconds, int frameCap)
+    {
+        var fps = frameCap > 0 ? frameCap : UncappedFrameRateCeiling;
+        return (int)Math.Min(int.MaxValue / 2L, (long)Math.Ceiling(seconds * (double)fps * 1.25) + 1024);
+    }
+
+    /// <summary>
+    /// Makes room for <paramref name="expectedFrames"/> samples now, so that adding them while the run is measured does not
+    /// allocate (a growing list allocates ever bigger arrays, which end up on the large object heap and count as GC work).
+    /// </summary>
+    public void Reserve(int expectedFrames)
+    {
+        if (expectedFrames > samples.Capacity)
+            samples.Capacity = expectedFrames;
+    }
 
     public void Add(double value)
     {

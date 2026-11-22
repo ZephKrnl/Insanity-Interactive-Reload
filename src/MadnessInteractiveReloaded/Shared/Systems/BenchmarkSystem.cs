@@ -140,6 +140,9 @@ public class BenchmarkSystem : Walgelijk.System
 
     private void BeginRecording()
     {
+        // Before the GC and allocation counters are read: the list must not allocate while the run is measured.
+        frameTimes.Reserve(BenchmarkFrameTimes.ExpectedFrames(Options.Seconds, FrameCapNumber(Game)));
+
         gc0 = GC.CollectionCount(0);
         gc1 = GC.CollectionCount(1);
         gc2 = GC.CollectionCount(2);
@@ -306,10 +309,18 @@ public class BenchmarkSystem : Walgelijk.System
 
     private static string DescribeFrameCap(Game game)
     {
+        var cap = FrameCapNumber(game);
+        if (cap > 0)
+            return cap.ToString(CultureInfo.InvariantCulture);
+        return game.AdditionalLoopEvents.Any(static e => e is FrameLimiterLoopEvent) ? "uncapped" : "none";
+    }
+
+    /// <summary>The frame cap in effect in frames per second, or zero when there is none.</summary>
+    private static int FrameCapNumber(Game game)
+    {
         if (!game.AdditionalLoopEvents.Any(static e => e is FrameLimiterLoopEvent))
-            return game.UpdateRate > 0 ? game.UpdateRate.ToString(CultureInfo.InvariantCulture) : "none";
-        var cap = FrameLimiterLoopEvent.Cap;
-        return cap <= 0 ? "uncapped" : cap.ToString(CultureInfo.InvariantCulture);
+            return Math.Max(0, game.UpdateRate);
+        return Math.Max(0, FrameLimiterLoopEvent.Cap);
     }
 
     private static bool ReadVSync(Game game)

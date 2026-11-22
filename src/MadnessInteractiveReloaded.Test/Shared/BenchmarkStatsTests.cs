@@ -10,6 +10,31 @@ namespace MIR.Test.Shared;
 [Collection("Registry collection")]
 public class BenchmarkStatsTests
 {
+    [Theory]
+    [InlineData(60, 60)]
+    [InlineData(60, 144)]
+    [InlineData(60, 300)]
+    [InlineData(600, 0)] // uncapped, the longest run
+    public void RecordingAFullRunDoesNotGrowTheFrameTimeList(int seconds, int frameCap)
+    {
+        var stats = new BenchmarkFrameTimes();
+        stats.Reserve(BenchmarkFrameTimes.ExpectedFrames(seconds, frameCap));
+        var capacity = stats.Capacity;
+
+        var fps = frameCap > 0 ? frameCap : BenchmarkFrameTimes.UncappedFrameRateCeiling;
+        for (int i = 0; i < seconds * fps; i++)
+            stats.Add(1d / fps);
+
+        stats.Capacity.Should().Be(capacity, "because growing the list during the measured window allocates (large object heap) and skews allocated_mb and gc2");
+    }
+
+    [Fact]
+    public void ExpectedFramesCoversTheRunWithHeadroom()
+    {
+        BenchmarkFrameTimes.ExpectedFrames(60, 144).Should().BeGreaterThan(60 * 144);
+        BenchmarkFrameTimes.ExpectedFrames(60, 0).Should().BeGreaterThan(60 * BenchmarkFrameTimes.UncappedFrameRateCeiling);
+    }
+
     [Fact]
     public void PercentilesInterpolateBetweenTheClosestRanks()
     {
