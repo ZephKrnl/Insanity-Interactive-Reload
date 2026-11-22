@@ -163,6 +163,8 @@ public class BenchmarkSmokeTests : IDisposable
         }
         finally
         {
+            // Leave through the game, so an unfinished run is deactivated and gives the global settings back (Dispose does not).
+            game.Scene = new Scene(game);
             scene.Dispose();
             game.Stop();
         }
@@ -215,6 +217,10 @@ public class BenchmarkSmokeTests : IDisposable
         var game = TestGameUtil.Create(new RecordingLogger());
         PrepareRegistries();
         var persistedBefore = ExperimentModePersistentData.AutoSpawn;
+        // Experiment mode writes all of these when its scene is deactivated; they are its state, not the benchmark's.
+        var persistedSpawning = ExperimentModePersistentData.SpawningComponent;
+        var persistedFaction = ExperimentModePersistentData.SelectedFaction;
+        var persistedFilter = ExperimentModePersistentData.CurrentFilter;
         try
         {
             var experiment = game.Scene = ExperimentScene.Create(game, Registries.Levels.Get("exp_2").Level.Value, SceneCacheSettings.NoCache);
@@ -238,6 +244,9 @@ public class BenchmarkSmokeTests : IDisposable
         {
             AiCharacterSystem.AutoSpawn = false;
             ExperimentModePersistentData.AutoSpawn = persistedBefore;
+            ExperimentModePersistentData.SpawningComponent = persistedSpawning;
+            ExperimentModePersistentData.SelectedFaction = persistedFaction;
+            ExperimentModePersistentData.CurrentFilter = persistedFilter;
             game.Scene?.Dispose();
             game.Stop();
         }
