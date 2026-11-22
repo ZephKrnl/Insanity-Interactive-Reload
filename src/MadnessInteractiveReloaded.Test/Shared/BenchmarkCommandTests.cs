@@ -11,6 +11,7 @@ namespace MIR.Test.Shared;
 /// The <c>benchmark [ai] [seconds]</c> console command. Checked by hand in a test game: the engine's command parser fills in
 /// an omitted optional argument (<c>benchmark 0</c> answers with the AI-count error).
 /// </summary>
+[Collection("Registry collection")]
 public class BenchmarkCommandTests
 {
     [Fact]

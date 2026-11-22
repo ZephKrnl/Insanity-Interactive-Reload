@@ -7,6 +7,7 @@ using Xunit;
 
 namespace MIR.Test.Shared;
 
+[Collection("Registry collection")]
 public class BenchmarkStatsTests
 {
     [Fact]
