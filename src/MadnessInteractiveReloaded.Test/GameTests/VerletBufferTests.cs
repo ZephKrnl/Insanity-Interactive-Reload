@@ -90,6 +90,9 @@ public class VerletBufferTests : IDisposable
 
         try
         {
+            var layerCounterBefore = FactionLayerCounter();
+            var faction = new Faction("none", "none"); // one for all of them: every new faction uses up a collision layer, process-wide
+
             var characters = Enumerable.Range(0, RagdollCount).Select(i =>
             {
                 var x = -2300 + i * 60f;
@@ -97,12 +100,15 @@ public class VerletBufferTests : IDisposable
                 {
                     Name = "ragdoll " + i,
                     Bottom = new Vector2(x, level.GetFloorLevelAt(x)),
-                    Faction = new Faction("none", "none"),
+                    Faction = faction,
                     Look = Registries.Looks.Get("grunt"),
                     Stats = Registries.Stats.Get("grunt"),
                     Tag = Tags.EnemyAI
                 });
             }).ToArray();
+
+            FactionLayerCounter().Should().Be(layerCounterBefore << 1,
+                "because this test may only use up one faction collision layer (the layers are process-wide, and shipped factions loaded later would get none)");
 
             // One frame so the limbs are posed before they become ragdolls, the same as in play.
             TestGameUtil.StepGame(TimeSpan.FromSeconds(1 / 60f), game);
@@ -150,4 +156,7 @@ public class VerletBufferTests : IDisposable
             game.Stop();
         }
     }
+
+    private static uint FactionLayerCounter() =>
+        (uint)typeof(Faction).GetField("lastAssignedLayer", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)!.GetValue(null)!;
 }
