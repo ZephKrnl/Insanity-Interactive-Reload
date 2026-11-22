@@ -240,6 +240,40 @@ public class AllBaseDataLoadsTests : IDisposable
     }
 
     [Fact]
+    public void Every_faction_names_only_existing_factions_as_enemies_and_allies()
+    {
+        LoadWithoutErrors(Registries.LoadFactions, "faction");
+        var problems = ShippedData.Files("data/factions", ".json").SelectMany(path =>
+        {
+            var json = Newtonsoft.Json.Linq.JObject.Parse(ShippedData.ReadText(path));
+            return new[] { "Enemies", "Allies" }
+                .SelectMany(list => json[list]?.Select(t => (string?)t) ?? [])
+                .Where(id => id == null || !Registries.Factions.Has(id))
+                .Select(id => $"{path}: names unknown faction '{id}'");
+        });
+        problems.ShouldHaveNoProblems();
+    }
+
+    [Fact]
+    public void Every_level_names_only_existing_factions()
+    {
+        LoadWithoutErrors(Registries.LoadFactions, "faction");
+        var problems = ShippedData.Files("data/levels", ".json").SelectMany(path =>
+            ShippedData.FactionNamesIn(Newtonsoft.Json.Linq.JToken.Parse(ShippedData.ReadText(path)))
+                .Where(id => !Registries.Factions.Has(id))
+                .Select(id => $"{path}: names unknown faction '{id}'"));
+        problems.ShouldHaveNoProblems();
+    }
+
+    [Fact]
+    public void The_faction_name_scan_finds_the_names_in_a_level()
+    {
+        // Guards the guard: a scan that finds nothing would make the level check above pass vacuously.
+        var level = Newtonsoft.Json.Linq.JToken.Parse("""{"a":[{"Faction":"x","FactionKey":"y","CreateNewFaction":"z","Other":"w"},{"Faction":null}]}""");
+        ShippedData.FactionNamesIn(level).Should().BeEquivalentTo("x", "y", "z");
+    }
+
+    [Fact]
     public void The_reference_check_finds_a_missing_asset()
     {
         // Guards the guard: a broken reference must be reported, or every check above passes vacuously.

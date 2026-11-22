@@ -29,6 +29,12 @@ internal static class ShippedData
             throw new Xunit.Sdk.XunitException($"{all.Length} problem(s):\n" + string.Join("\n", all));
     }
 
+    /// <summary>Every non-null string value of a <c>Faction</c>, <c>FactionKey</c> or <c>CreateNewFaction</c> property anywhere in the JSON.</summary>
+    public static IEnumerable<string> FactionNamesIn(Newtonsoft.Json.Linq.JToken token)
+        => ((Newtonsoft.Json.Linq.JContainer)token).DescendantsAndSelf().OfType<Newtonsoft.Json.Linq.JProperty>()
+            .Where(p => p.Name is "Faction" or "FactionKey" or "CreateNewFaction" && p.Value.Type == Newtonsoft.Json.Linq.JTokenType.String)
+            .Select(p => (string)p.Value!);
+
     public static string ReadText(string assetPath) => File.ReadAllText(Path.Combine(BaseDirectory, assetPath));
 
     public static bool Exists(string assetPath) => File.Exists(Path.Combine(BaseDirectory, assetPath));
