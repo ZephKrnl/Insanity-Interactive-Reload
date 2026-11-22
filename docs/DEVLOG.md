@@ -277,6 +277,55 @@ These need a play session. The roadmap's manual checklist stays open for them.
 
 ---
 
+## 2026-11-23: WP-04 `qa/benchmark-and-data-checks` (`c466e58..a8b76bc`, PR #1)
+
+**Done** (BUG-14, BUG-47, BUG-64, BUG-69; also BUG-112 and BUG-113, which the new checks found)
+- **Benchmark (BUG-14):** the benchmark scene runs instead of crashing.
+  - It takes a settings snapshot when the scene starts and restores it when the scene ends.
+  - New `--mode benchmark` for unattended runs. The exit code reports failure.
+  - `BenchmarkStats` records frame times, allocations and GC counts, and writes a CSV report. The frame-time list is sized when recording starts, so the measured run doesn't allocate for it.
+  - `AiActivityCounters` counts AI shots and melee attacks. They only observe and don't change AI behaviour.
+  - The old `BenchmarkResult.cs` is removed.
+- **Data checks:**
+  - Every shipped data file loads, and everything it references exists.
+  - Every faction file and level file names only existing factions.
+  - Every shipped `LevelScript` compiles.
+- **BUG-64:** the boss-battle music script no longer compiled. Fixed in `lvl_cutscene_bossbattle.json`.
+- **BUG-69:** two incident-music file names were wrong. A missing entry now logs a warning.
+- **BUG-47:** the Verlet buffers grow instead of being cut off at 256 entries, so 15 or more ragdolls no longer fly apart. Also fixed: an endless loop in `CopyAllComponents` on an empty buffer.
+- **BUG-112:** faction relationships are rebuilt on every `LoadFactions` call, not only the first.
+- **BUG-113:** `civil.json` listed the enemy `"zeds"`, but the faction is `zed`. **Behaviour change:** civilians now treat zeds as enemies in Experiment mode.
+- Six levels pointed at thumbnails that don't exist. Their `Thumbnail` is now `"0"`: `dbg_room`, `exp_1`, `exp_2`, `exp_3`, `exp_5`, `exp_club`.
+
+**Verified**
+- Windows, Debug: build 0 errors. 372 passed, 0 failed, 1 skipped, in three runs in a row, then once more by the controller.
+- The skip is `lvl_incident_end_2.json`: BUG-111, its boss look `mag` doesn't exist. It is recorded, not fixed.
+- Independent review of the whole branch found 3 important gaps in the tests and data checks. The controller raised 2 more to important. All 5 were fixed in one round and confirmed by re-review:
+  - a test used up the faction collision layers;
+  - a test class ran in parallel with tests that assert no logged errors;
+  - faction references weren't checked;
+  - benchmark tests left settings changed;
+  - the frame-time list resized during the measured run.
+
+**Not verified** (needs a play session)
+- The windowed benchmark at caps 60, 144 and 300. Its baseline (N = 10 and N = 30, 3 runs each) is an M1 exit criterion and feeds the frame-cap decision.
+- The Konami kill-all.
+- The boss music cue at 93 s.
+- 15 or more ragdolls on screen. BUG-47 is only covered by tests.
+- Civilians fighting zeds in Experiment mode.
+- CI on GitHub for this branch.
+
+**Known trade-offs and deferred minors**
+- "Game not found" exits 0 in benchmark mode.
+- Uncapped runs above about 1,250 fps still grow the frame-time list.
+- No test covers the sizing call in `BenchmarkSystem.BeginRecording`.
+- The level faction check also requires `CreateNewFaction` names to exist already.
+- `ShippedData` lists the bin copy of the data, not the source.
+- The faction-layer test reads a private field by reflection. A rename fails loudly, not silently.
+- History: `4d657bf` and `b51f24c` don't build on their own, and `b717b09` has a WIP subject. Left as is, with no history rewrite.
+
+---
+
 ## How to keep this log
 
 - **One entry per merged branch.** Also add one for each non-code event that matters: a letter sent, a reply received, a decision made, a commission signed, a release.
